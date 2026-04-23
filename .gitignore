@@ -1,0 +1,33 @@
+# ========== Python ==========
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# ========== Node.js ==========
+node_modules/
+.next/
+out/
+.env.local
+.env*.local
+
+# ========== IDE ==========
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ========== Docker ==========
+db_data/
+
+# ========== Misc ==========
+*.log
+*.tmp
+coverage/
+.pytest_cache/
