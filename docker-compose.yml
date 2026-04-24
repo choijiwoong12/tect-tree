@@ -1,6 +1,7 @@
 services:
   db:
-    image: mysql:8.0
+    image: mysql:8.0-oracle
+    platform: linux/amd64
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root

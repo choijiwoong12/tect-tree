@@ -27,8 +27,8 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenPair:
 
 
 @router.post("/refresh", response_model=AccessTokenOut)
-def refresh(payload: RefreshRequest) -> AccessTokenOut:
-    access = auth_service.refresh_access_token(payload.refresh_token)
+def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> AccessTokenOut:
+    access = auth_service.refresh_access_token(db, payload.refresh_token)
     return AccessTokenOut(access_token=access)
 
 

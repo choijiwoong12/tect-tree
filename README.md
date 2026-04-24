@@ -1,5 +1,4 @@
-# ATHENA DOCTRINE TECH TREE — 프로젝트 작업 계획서
-
+# ATHENA DOCTRINE TECH TREE
 > **프로젝트명**: ATHENA DOCTRINE TECH TREE  
 > **문서 작성일**: 2026-05-04  
 > **작업 기간**: 2026-05-04 ~ 2026-06-01 (4주)  

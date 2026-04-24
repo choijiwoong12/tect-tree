@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose *)",
+      "Bash(mysql --version)",
+      "Bash(brew services *)",
+      "Bash(docker system *)"
+    ]
+  }
+}
