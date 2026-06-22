@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/auth/AuthProvider'
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { refreshUser } = useAuth()
@@ -96,5 +96,13 @@ export default function CheckoutSuccessPage() {
         </>
       )}
     </main>
+  )
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={<main style={{ textAlign: 'center', padding: '2rem' }}><p>로딩 중...</p></main>}>
+      <CheckoutSuccessContent />
+    </Suspense>
   )
 }
