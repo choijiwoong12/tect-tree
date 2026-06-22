@@ -2,7 +2,6 @@
 
 import {
   GitBranch,
-  Search,
   Settings,
   LayoutDashboard,
   FolderTree,
@@ -23,7 +22,6 @@ const NAV_ITEMS: NavItem[] = [
   { icon: <LayoutDashboard size={16} />, label: "대시보드", tab: "dashboard" },
   { icon: <Network size={16} />, label: "그래프 뷰", tab: "graph" },
   { icon: <FolderTree size={16} />, label: "노드 관리", tab: "nodes" },
-  { icon: <Search size={16} />, label: "노드 검색", tab: "search" },
 ];
 
 const BOTTOM_ITEMS: NavItem[] = [

@@ -96,21 +96,21 @@ export default function NodePositionPicker({
   const previewPos = placed ?? mouse;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0D0D0D] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-[#F5F7FA] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shrink-0">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft size={14} />
             뒤로
           </button>
-          <div className="w-px h-4 bg-white/20" />
+          <div className="w-px h-4 bg-gray-200" />
           <div>
-            <p className="text-sm font-medium text-white">노드 위치 설정</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-sm font-semibold text-gray-900">노드 위치 설정</p>
+            <p className="text-xs text-gray-400">
               {parentNode
                 ? `"${parentNode.title}" 기준 오프셋`
                 : "루트 절대 위치"}{" "}
@@ -121,7 +121,7 @@ export default function NodePositionPicker({
 
         <div className="flex items-center gap-3">
           {placed && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-400 font-mono">
               오프셋 ({Math.round(placed.x - cx)}, {Math.round(placed.y - cy)})
             </span>
           )}
@@ -130,8 +130,8 @@ export default function NodePositionPicker({
             disabled={!placed}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               placed
-                ? "bg-red-500 hover:bg-red-600 text-white"
-                : "bg-white/10 text-gray-600 cursor-not-allowed"
+                ? "bg-blue-500 hover:bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
           >
             <MapPin size={14} />
@@ -152,7 +152,7 @@ export default function NodePositionPicker({
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: "radial-gradient(circle, #2a2a2a 1.5px, transparent 1.5px)",
+            backgroundImage: "radial-gradient(circle, #d1d5db 1.5px, transparent 1.5px)",
             backgroundSize: "40px 40px",
           }}
         />
@@ -175,7 +175,7 @@ export default function NodePositionPicker({
                   y1={toSy(pabs.y)}
                   x2={toSx(abs.x)}
                   y2={toSy(abs.y)}
-                  stroke="#2a2a2a"
+                  stroke="#cbd5e1"
                   strokeWidth={1.5}
                 />
               );
@@ -188,8 +188,8 @@ export default function NodePositionPicker({
                 y1={cy}
                 x2={previewPos.x}
                 y2={previewPos.y}
-                stroke={placed ? "#ef4444" : "#555"}
-                strokeWidth={1}
+                stroke={placed ? "#3b82f6" : "#94a3b8"}
+                strokeWidth={1.5}
                 strokeDasharray={placed ? "none" : "5,4"}
               />
             )}
@@ -201,6 +201,9 @@ export default function NodePositionPicker({
               const sx = toSx(abs.x);
               const sy = toSy(abs.y);
               const isParent = node.id === parentId;
+              const fill = node.node_kind === "category" ? "#7c3aed"
+                : node.node_kind === "file" ? "#059669"
+                : "#2563eb";
 
               return (
                 <g key={`node-${node.id}`}>
@@ -208,15 +211,15 @@ export default function NodePositionPicker({
                     cx={sx}
                     cy={sy}
                     r={isParent ? 9 : 5}
-                    fill={isParent ? "#ef4444" : "#3a3a3a"}
-                    stroke={isParent ? "#ef4444" : "#555"}
-                    strokeWidth={isParent ? 2 : 1}
+                    fill={isParent ? "#ef4444" : fill}
+                    stroke={isParent ? "#dc2626" : "none"}
+                    strokeWidth={isParent ? 2 : 0}
                   />
                   <text
                     x={sx}
-                    y={sy + (isParent ? 22 : 18)}
+                    y={sy + (isParent ? 22 : 17)}
                     textAnchor="middle"
-                    fill={isParent ? "#ef4444" : "#666"}
+                    fill={isParent ? "#ef4444" : "#6b7280"}
                     fontSize={isParent ? 11 : 10}
                     fontFamily="monospace"
                   >
@@ -226,35 +229,35 @@ export default function NodePositionPicker({
               );
             })}
 
-            {/* Preview / placed new node */}
+            {/* Preview node (hover) */}
             {mouse && !placed && (
-              <g>
-                <circle
-                  cx={mouse.x}
-                  cy={mouse.y}
-                  r={6}
-                  fill="#ef444430"
-                  stroke="#ef4444"
-                  strokeWidth={1.5}
-                  strokeDasharray="3,2"
-                />
-              </g>
+              <circle
+                cx={mouse.x}
+                cy={mouse.y}
+                r={6}
+                fill="#3b82f620"
+                stroke="#3b82f6"
+                strokeWidth={1.5}
+                strokeDasharray="3,2"
+              />
             )}
+
+            {/* Placed node */}
             {placed && (
               <g>
                 <circle
                   cx={placed.x}
                   cy={placed.y}
                   r={7}
-                  fill="#ef4444"
+                  fill="#3b82f6"
                   stroke="#fff"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                 />
                 <text
                   x={placed.x}
                   y={placed.y + 20}
                   textAnchor="middle"
-                  fill="#ef4444"
+                  fill="#2563eb"
                   fontSize={10}
                   fontFamily="monospace"
                 >
@@ -267,8 +270,8 @@ export default function NodePositionPicker({
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-3 border-t border-white/10 shrink-0">
-        <p className="text-xs text-gray-600 text-center">
+      <div className="px-6 py-3 bg-white border-t border-gray-200 shrink-0">
+        <p className="text-xs text-gray-400 text-center">
           {placed
             ? "위치가 선택됐습니다. 위치를 바꾸려면 다시 클릭하세요."
             : "빈 공간을 클릭해 새 노드의 위치를 선택하세요."}
