@@ -4,7 +4,20 @@ import type { DocumentNode } from "./types";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder";
 
-export const supabase = createClient(url, key);
+export const supabase = createClient(url, key, {
+  auth: { detectSessionInUrl: true, persistSession: true },
+});
+
+export async function signInWithGoogle() {
+  const redirectTo =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (typeof window !== "undefined" ? window.location.origin : "http://localhost:3001");
+  return supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo } });
+}
+
+export async function signOut() {
+  return supabase.auth.signOut();
+}
 
 export async function fetchAllNodes(): Promise<DocumentNode[]> {
   const { data, error } = await supabase

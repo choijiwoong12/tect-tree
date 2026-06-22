@@ -5,11 +5,12 @@ import {
   Search,
   Settings,
   LayoutDashboard,
-  FileText,
   FolderTree,
-  Lock,
+  Network,
+  LogOut,
   ChevronRight,
 } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
 import clsx from "clsx";
 
 interface NavItem {
@@ -20,6 +21,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { icon: <LayoutDashboard size={16} />, label: "대시보드", tab: "dashboard" },
+  { icon: <Network size={16} />, label: "그래프 뷰", tab: "graph" },
   { icon: <FolderTree size={16} />, label: "노드 관리", tab: "nodes" },
   { icon: <Search size={16} />, label: "노드 검색", tab: "search" },
 ];
@@ -32,9 +34,11 @@ interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   totalNodes: number;
+  user: User;
+  onSignOut: () => void;
 }
 
-export default function Sidebar({ activeTab, onTabChange, totalNodes }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, totalNodes, user, onSignOut }: SidebarProps) {
   return (
     <aside className="flex flex-col w-[220px] min-w-[220px] h-screen bg-[#1B2537] select-none">
       {/* Logo */}
@@ -86,14 +90,30 @@ export default function Sidebar({ activeTab, onTabChange, totalNodes }: SidebarP
 
       {/* User */}
       <div className="flex items-center gap-2.5 px-4 py-3 border-t border-[#2A3A52]">
-        <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-          A
+        {user.user_metadata?.avatar_url ? (
+          <img
+            src={user.user_metadata.avatar_url}
+            alt="avatar"
+            className="w-7 h-7 rounded-full object-cover shrink-0"
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+            {(user.user_metadata?.name ?? user.email ?? "A")[0].toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-white text-xs font-medium truncate">
+            {user.user_metadata?.name ?? "Admin"}
+          </p>
+          <p className="text-[#4A6080] text-[10px] truncate">{user.email}</p>
         </div>
-        <div className="min-w-0">
-          <p className="text-white text-xs font-medium truncate">Admin</p>
-          <p className="text-[#4A6080] text-[10px] truncate">관리자 계정</p>
-        </div>
-        <Lock size={12} className="ml-auto text-[#4A6080] shrink-0" />
+        <button
+          onClick={onSignOut}
+          title="로그아웃"
+          className="shrink-0 p-1 rounded text-[#4A6080] hover:text-white hover:bg-[#2A3A52] transition-colors"
+        >
+          <LogOut size={13} />
+        </button>
       </div>
     </aside>
   );

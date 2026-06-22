@@ -14,13 +14,13 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import type { DocumentNode, NodeTreeItem } from "@/lib/types";
-import { buildTree, flattenTree, nodeKindLabel, nodeKindColor } from "@/lib/utils";
+import { buildTree, flattenTree } from "@/lib/utils";
 
 interface NodeListProps {
   nodes: DocumentNode[];
   selectedId: number | null;
   onSelect: (node: DocumentNode) => void;
-  onAdd: () => void;
+  onAdd: (parentId?: number) => void;
   onRefresh: () => void;
   loading: boolean;
   searchQuery: string;
@@ -75,7 +75,7 @@ export default function NodeList({
             <RefreshCw size={13} className={clsx(loading && "animate-spin")} />
           </IconBtn>
           <button
-            onClick={onAdd}
+            onClick={() => onAdd()}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium transition-colors"
           >
             <Plus size={12} />
@@ -125,65 +125,70 @@ export default function NodeList({
 
               return (
                 <li key={node.id}>
-                  <button
-                    onClick={() => onSelect(node)}
+                  <div
                     className={clsx(
-                      "w-full flex items-center gap-1.5 px-3 py-2 text-left transition-colors group",
+                      "flex items-center gap-1.5 pr-1 transition-colors group",
                       "hover:bg-gray-50",
                       selectedId === node.id && "bg-blue-50 border-r-2 border-blue-500"
                     )}
-                    style={{ paddingLeft: `${12 + (node.depth ?? 0) * 16}px` }}
                   >
-                    {/* Collapse toggle */}
-                    {hasChildren ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleCollapse(node.id);
-                        }}
-                        className="shrink-0 text-gray-400 hover:text-gray-600"
-                      >
-                        {isCollapsed ? (
-                          <ChevronRight size={12} />
-                        ) : (
-                          <ChevronDown size={12} />
-                        )}
-                      </button>
-                    ) : (
-                      <span className="w-3 shrink-0" />
-                    )}
-
-                    {/* Icon */}
-                    <NodeIcon kind={node.node_kind} />
-
-                    {/* Title */}
-                    <span
-                      className={clsx(
-                        "flex-1 text-xs truncate",
-                        selectedId === node.id
-                          ? "text-blue-700 font-medium"
-                          : "text-gray-700"
-                      )}
+                    <button
+                      onClick={() => onSelect(node)}
+                      className="flex-1 flex items-center gap-1.5 py-2 text-left min-w-0"
+                      style={{ paddingLeft: `${12 + (node.depth ?? 0) * 16}px` }}
                     >
-                      {node.title}
-                    </span>
-
-                    {/* Badges */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      {node.is_locked && (
-                        <Lock size={10} className="text-gray-400" />
+                      {/* Collapse toggle */}
+                      {hasChildren ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCollapse(node.id);
+                          }}
+                          className="shrink-0 text-gray-400 hover:text-gray-600"
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight size={12} />
+                          ) : (
+                            <ChevronDown size={12} />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="w-3 shrink-0" />
                       )}
+
+                      {/* Icon */}
+                      <NodeIcon kind={node.node_kind} />
+
+                      {/* Title */}
                       <span
                         className={clsx(
-                          "hidden group-hover:inline-block px-1.5 py-0.5 rounded text-[10px] font-medium",
-                          nodeKindColor(node.node_kind)
+                          "flex-1 text-xs truncate",
+                          selectedId === node.id
+                            ? "text-blue-700 font-medium"
+                            : "text-gray-700"
                         )}
                       >
-                        {nodeKindLabel(node.node_kind)}
+                        {node.title}
                       </span>
-                      <span className="text-[10px] text-gray-300">#{node.id}</span>
-                    </div>
-                  </button>
+
+                      {/* Badges */}
+                      {node.is_locked && (
+                        <Lock size={10} className="text-gray-400 shrink-0" />
+                      )}
+                    </button>
+
+                    {/* Add child button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAdd(node.id);
+                      }}
+                      title={`"${node.title}" 하위에 추가`}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                    >
+                      <Plus size={11} />
+                    </button>
+                  </div>
                 </li>
               );
             })}

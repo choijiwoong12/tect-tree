@@ -11,7 +11,6 @@ import {
   Hash,
   GitBranch,
   FileText,
-  AlertTriangle,
 } from "lucide-react";
 import clsx from "clsx";
 import type { DocumentNode, NodeKind } from "@/lib/types";
@@ -198,7 +197,7 @@ export default function NodeDetail({
                   .filter((n) => n.id !== node?.id)
                   .map((n) => (
                     <option key={n.id} value={n.id}>
-                      #{n.id} {n.title}
+                      {n.title}
                     </option>
                   ))}
               </select>
@@ -264,7 +263,7 @@ export default function NodeDetail({
           )}
         >
           <Save size={13} />
-          {saving ? "저장 중..." : "저장"}
+          {saving ? "저장 중..." : isNew ? "다음: 위치 설정 →" : "저장"}
         </button>
       </div>
     </div>

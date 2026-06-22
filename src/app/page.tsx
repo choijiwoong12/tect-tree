@@ -3,22 +3,51 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
+import type { Session } from "@supabase/supabase-js";
 import Sidebar from "@/components/Sidebar";
 import NodeList from "@/components/NodeList";
 import NodeDetail from "@/components/NodeDetail";
+import NodePositionPicker from "@/components/NodePositionPicker";
+import GraphView from "@/components/GraphView";
 import Dashboard from "@/components/Dashboard";
+import LoginPage from "@/components/LoginPage";
 import type { DocumentNode } from "@/lib/types";
 import {
+  supabase,
   fetchAllNodes,
   createNode,
   updateNode,
   deleteNode,
+  signOut,
 } from "@/lib/supabase";
 import { AlertTriangle } from "lucide-react";
 
-type Tab = "dashboard" | "nodes" | "search" | "settings";
+type Tab = "dashboard" | "graph" | "nodes" | "search" | "settings";
 
 export default function AdminPage() {
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (session === undefined) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (session === null) return <LoginPage />;
+
+  return <AdminShell session={session} onSignOut={() => signOut()} />;
+}
+
+function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>("nodes");
   const [nodes, setNodes] = useState<DocumentNode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +56,7 @@ export default function AdminPage() {
   const [selectedNode, setSelectedNode] = useState<DocumentNode | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingNodeData, setPendingNodeData] = useState<Partial<DocumentNode> | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -52,28 +82,57 @@ export default function AdminPage() {
   }, [loadNodes]);
 
   async function handleSave(data: Partial<DocumentNode>) {
+    if (isNew) {
+      setPendingNodeData(data);
+      return;
+    }
     setSaving(true);
     try {
-      if (isNew) {
-        const created = await createNode({
-          title: data.title ?? "새 노드",
-          node_kind: data.node_kind ?? "content",
-          body_content: data.body_content ?? null,
-          parent_id: data.parent_id ?? null,
-          is_locked: data.is_locked ?? false,
-          file_name: null,
-          file_path: null,
-        });
-        await loadNodes();
-        setSelectedNode(created);
-        setIsNew(false);
-      } else if (selectedNode) {
+      if (selectedNode) {
         const updated = await updateNode(selectedNode.id, data);
         await loadNodes();
         setSelectedNode(updated);
       }
     } catch (e) {
-      alert(e instanceof Error ? e.message : "저장 실패");
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "object" && e !== null && "message" in e
+          ? String((e as { message: unknown }).message)
+          : JSON.stringify(e);
+      alert(msg);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handlePositionConfirm(posX: number, posY: number) {
+    if (!pendingNodeData) return;
+    setSaving(true);
+    try {
+      const created = await createNode({
+        title: pendingNodeData.title ?? "새 노드",
+        node_kind: pendingNodeData.node_kind ?? "content",
+        body_content: pendingNodeData.body_content ?? null,
+        parent_id: pendingNodeData.parent_id ?? null,
+        is_locked: pendingNodeData.is_locked ?? false,
+        file_name: null,
+        file_path: null,
+        pos_x: posX,
+        pos_y: posY,
+      });
+      await loadNodes();
+      setSelectedNode(created);
+      setIsNew(false);
+      setPendingNodeData(null);
+    } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "object" && e !== null && "message" in e
+          ? String((e as { message: unknown }).message)
+          : JSON.stringify(e);
+      alert(msg);
     } finally {
       setSaving(false);
     }
@@ -90,13 +149,14 @@ export default function AdminPage() {
     }
   }
 
-  function handleAddNew() {
+  const [newParentId, setNewParentId] = useState<number | null>(null);
+
+  function handleAddNew(parentId?: number) {
     setIsNew(true);
     setSelectedNode(null);
+    setNewParentId(parentId ?? null);
     setTab("nodes");
   }
-
-  const showDetail = isNew || selectedNode !== null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
@@ -110,6 +170,8 @@ export default function AdminPage() {
           }
         }}
         totalNodes={nodes.length}
+        user={session.user}
+        onSignOut={onSignOut}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -118,13 +180,15 @@ export default function AdminPage() {
           <div>
             <h1 className="text-sm font-semibold text-gray-900">
               {tab === "dashboard" && "대시보드"}
+              {tab === "graph" && "그래프 뷰"}
               {tab === "nodes" && "노드 관리"}
               {tab === "search" && "노드 검색"}
               {tab === "settings" && "설정"}
             </h1>
             <p className="text-xs text-gray-400">
-              {tab === "nodes" && `${nodes.length}개 노드`}
               {tab === "dashboard" && "전체 현황"}
+              {tab === "graph" && `${nodes.length}개 노드 시각화`}
+              {tab === "nodes" && `${nodes.length}개 노드`}
               {tab === "search" && "노드 검색"}
               {tab === "settings" && "시스템 설정"}
             </p>
@@ -166,6 +230,17 @@ export default function AdminPage() {
             <Dashboard nodes={nodes} />
           )}
 
+          {tab === "graph" && (
+            <GraphView
+              nodes={nodes}
+              onSelectNode={(node) => {
+                setSelectedNode(node);
+                setIsNew(false);
+                setTab("nodes");
+              }}
+            />
+          )}
+
           {(tab === "nodes" || tab === "search") && (
             <>
               {/* Node list panel */}
@@ -190,7 +265,7 @@ export default function AdminPage() {
                 node={selectedNode}
                 allNodes={nodes}
                 isNew={isNew}
-                parentId={null}
+                parentId={newParentId}
                 onSave={handleSave}
                 onDelete={handleDelete}
                 onClose={() => {
@@ -234,6 +309,15 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+      {pendingNodeData && (
+        <NodePositionPicker
+          nodes={nodes}
+          parentId={pendingNodeData.parent_id ?? null}
+          newNodeTitle={pendingNodeData.title ?? "새 노드"}
+          onConfirm={handlePositionConfirm}
+          onBack={() => setPendingNodeData(null)}
+        />
+      )}
     </div>
   );
 }
