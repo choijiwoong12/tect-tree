@@ -1,0 +1,47 @@
+services:
+  admin:
+    image: ${IMAGE_NAME:-admin:latest}
+    environment:
+      APP_NAME: ${APP_NAME:-Admin}
+      APP_ENV: ${APP_ENV:-production}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8000/auth/google/callback}
+      SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:-change-me-for-local-dev}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      ALLOWED_DOMAINS: ${ALLOWED_DOMAINS:-}
+      DATABASE_URL: ${DATABASE_URL:-}
+      DATAHUB_DATABASE_FILE: ${DATAHUB_DATABASE_FILE:-/datahub/datahub.db}
+      DATAHUB_UPLOAD_DIR: ${DATAHUB_UPLOAD_DIR:-/datahub/uploads}
+    ports:
+      - target: 8000
+        published: ${PORT:-8000}
+        protocol: tcp
+        mode: ingress
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      replicas: ${REPLICAS:-1}
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          cpus: "0.10"
+          memory: 64M
