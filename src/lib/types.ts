@@ -9,6 +9,7 @@ export interface DocumentNode {
   file_name: string | null;
   file_path: string | null;
   is_locked: boolean;
+  price: number | null;
   pos_x: number | null;
   pos_y: number | null;
   created_at?: string;

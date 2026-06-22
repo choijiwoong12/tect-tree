@@ -57,6 +57,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingNodeData, setPendingNodeData] = useState<Partial<DocumentNode> | null>(null);
+  const [repositioningNode, setRepositioningNode] = useState<DocumentNode | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -116,6 +117,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
         body_content: pendingNodeData.body_content ?? null,
         parent_id: pendingNodeData.parent_id ?? null,
         is_locked: pendingNodeData.is_locked ?? false,
+        price: pendingNodeData.price ?? null,
         file_name: null,
         file_path: null,
         pos_x: posX,
@@ -125,6 +127,27 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
       setSelectedNode(created);
       setIsNew(false);
       setPendingNodeData(null);
+    } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "object" && e !== null && "message" in e
+          ? String((e as { message: unknown }).message)
+          : JSON.stringify(e);
+      alert(msg);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRepositionConfirm(posX: number, posY: number) {
+    if (!repositioningNode) return;
+    setSaving(true);
+    try {
+      const updated = await updateNode(repositioningNode.id, { pos_x: posX, pos_y: posY });
+      await loadNodes();
+      setSelectedNode(updated);
+      setRepositioningNode(null);
     } catch (e) {
       const msg =
         e instanceof Error
@@ -268,6 +291,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
                 parentId={newParentId}
                 onSave={handleSave}
                 onDelete={handleDelete}
+                onReposition={selectedNode ? () => setRepositioningNode(selectedNode) : undefined}
                 onClose={() => {
                   setSelectedNode(null);
                   setIsNew(false);
@@ -316,6 +340,15 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
           newNodeTitle={pendingNodeData.title ?? "새 노드"}
           onConfirm={handlePositionConfirm}
           onBack={() => setPendingNodeData(null)}
+        />
+      )}
+      {repositioningNode && (
+        <NodePositionPicker
+          nodes={nodes.filter((n) => n.id !== repositioningNode.id)}
+          parentId={repositioningNode.parent_id}
+          newNodeTitle={repositioningNode.title}
+          onConfirm={handleRepositionConfirm}
+          onBack={() => setRepositioningNode(null)}
         />
       )}
     </div>

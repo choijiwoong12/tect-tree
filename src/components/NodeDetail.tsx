@@ -11,6 +11,7 @@ import {
   Hash,
   GitBranch,
   FileText,
+  MapPin,
 } from "lucide-react";
 import clsx from "clsx";
 import type { DocumentNode, NodeKind } from "@/lib/types";
@@ -24,6 +25,7 @@ interface NodeDetailProps {
   parentId?: number | null;
   onSave: (data: Partial<DocumentNode>) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  onReposition?: () => void;
   onClose: () => void;
   saving: boolean;
 }
@@ -35,6 +37,7 @@ export default function NodeDetail({
   parentId,
   onSave,
   onDelete,
+  onReposition,
   onClose,
   saving,
 }: NodeDetailProps) {
@@ -43,6 +46,7 @@ export default function NodeDetail({
   const [bodyContent, setBodyContent] = useState("");
   const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
   const [isLocked, setIsLocked] = useState(false);
+  const [price, setPrice] = useState<string>("");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -52,12 +56,14 @@ export default function NodeDetail({
       setBodyContent("");
       setSelectedParentId(parentId ?? null);
       setIsLocked(false);
+      setPrice("");
     } else if (node) {
       setTitle(node.title);
       setNodeKind(node.node_kind);
       setBodyContent(node.body_content ?? "");
       setSelectedParentId(node.parent_id);
       setIsLocked(node.is_locked);
+      setPrice(node.price !== null && node.price !== undefined ? String(node.price) : "");
     }
     setConfirmDelete(false);
   }, [node, isNew, parentId]);
@@ -82,6 +88,7 @@ export default function NodeDetail({
       body_content: bodyContent || null,
       parent_id: selectedParentId,
       is_locked: isLocked,
+      price: price.trim() === "" ? null : parseInt(price.replace(/,/g, ""), 10),
     });
   }
 
@@ -182,6 +189,25 @@ export default function NodeDetail({
               </select>
             </Field>
 
+            <Field label="가격 (원)">
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                  ₩
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={price}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9]/g, "");
+                    setPrice(raw ? Number(raw).toLocaleString() : "");
+                  }}
+                  placeholder="무료"
+                  className="input pl-6"
+                />
+              </div>
+            </Field>
+
             <Field label="부모 노드">
               <select
                 value={selectedParentId ?? ""}
@@ -252,19 +278,30 @@ export default function NodeDetail({
         <p className="text-xs text-gray-400">
           {isNew ? "새 노드를 생성합니다" : `노드 #${node?.id} 수정`}
         </p>
-        <button
-          onClick={handleSave}
-          disabled={saving || !title.trim()}
-          className={clsx(
-            "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-            saving || !title.trim()
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-blue-500 hover:bg-blue-600 text-white"
+        <div className="flex items-center gap-2">
+          {!isNew && onReposition && (
+            <button
+              onClick={onReposition}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+            >
+              <MapPin size={13} />
+              위치 재설정
+            </button>
           )}
-        >
-          <Save size={13} />
-          {saving ? "저장 중..." : isNew ? "다음: 위치 설정 →" : "저장"}
-        </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !title.trim()}
+            className={clsx(
+              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              saving || !title.trim()
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600 text-white"
+            )}
+          >
+            <Save size={13} />
+            {saving ? "저장 중..." : isNew ? "다음: 위치 설정 →" : "저장"}
+          </button>
+        </div>
       </div>
     </div>
   );
