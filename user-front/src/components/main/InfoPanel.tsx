@@ -8,18 +8,28 @@ export function InfoPanel({
   user,
   showMember,
   onOpenCustomerService,
+  onOpenShop,
+  onOpenSubscriptionManage,
 }: {
   user: User | null;
   showMember: boolean;
   onOpenCustomerService?: () => void;
+  onOpenShop?: () => void;
+  onOpenSubscriptionManage?: () => void;
 }) {
   const isMember = !!user && showMember;
+  const subscribed = false; // TODO: 실제 구독 상태 연동
+  const onSubscriptionClick = subscribed ? onOpenSubscriptionManage : onOpenShop;
 
   return (
     <div className="absolute bottom-6 left-6 z-40 font-pixel text-white text-xs leading-relaxed max-w-sm pointer-events-auto">
       <div className="border border-white/25 bg-black/40 rounded px-5 py-4">
         {isMember ? (
-          <MemberInfo user={user as User} onOpenCustomerService={onOpenCustomerService} />
+          <MemberInfo
+            user={user as User}
+            onOpenCustomerService={onOpenCustomerService}
+            onSubscriptionClick={onSubscriptionClick}
+          />
         ) : (
           <BusinessInfo />
         )}
@@ -46,7 +56,15 @@ function BusinessInfo() {
   );
 }
 
-function MemberInfo({ user, onOpenCustomerService }: { user: User; onOpenCustomerService?: () => void }) {
+function MemberInfo({
+  user,
+  onOpenCustomerService,
+  onSubscriptionClick,
+}: {
+  user: User;
+  onOpenCustomerService?: () => void;
+  onSubscriptionClick?: () => void;
+}) {
   // TODO: 콜사인/등급/직전노드/진행률/구독상태는 users 스키마 확장 + 노드 연동 후 실제 값으로.
   const callSign = user.nickname || "YOU";
   return (
@@ -56,7 +74,9 @@ function MemberInfo({ user, onOpenCustomerService }: { user: User; onOpenCustome
       <div>LAST NODE : -</div>
       <div>PROGRESS : 0 %</div>
       <div>RP : {(user.rp_balance ?? 0).toLocaleString()}</div>
-      <div>MONTHLY SUBSCRIPTION OFF</div>
+      <button onClick={onSubscriptionClick} className="block text-left hover:text-white/70 transition-colors">
+        MONTHLY SUBSCRIPTION OFF
+      </button>
       <div className="mt-2 flex gap-3 text-red-500">
         <button onClick={onOpenCustomerService} className="hover:text-red-400 transition-colors">( CUSTOMER SERVICE )</button>
         {/* TODO: NOTICE 모달 */}

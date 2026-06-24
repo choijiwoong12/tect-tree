@@ -8,6 +8,7 @@ import { TopBar } from '@/components/common/TopBar'
 import { InfoPanel } from '@/components/main/InfoPanel'
 import { ShopModal } from '@/components/main/ShopModal'
 import { CustomerServiceModal } from '@/components/main/CustomerServiceModal'
+import { SubscriptionModal } from '@/components/main/SubscriptionModal'
 
 interface TechTreeProps {
   onLoginClick: () => void;
@@ -18,7 +19,7 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
   const { user, logout } = useAuth()
   const [focusLabel, setFocusLabel] = useState<string>('')
   const [showMember, setShowMember] = useState(false)
-  const [modal, setModal] = useState<null | 'shop' | 'cs'>(null)
+  const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub'>(null)
 
   return (
     <div className="relative w-full h-screen athena-grid-bg overflow-hidden">
@@ -46,10 +47,13 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
         user={user}
         showMember={showMember}
         onOpenCustomerService={() => setModal('cs')}
+        onOpenShop={() => setModal('shop')}
+        onOpenSubscriptionManage={() => setModal('sub')}
       />
 
       {modal === 'shop' && <ShopModal onClose={() => setModal(null)} />}
       {modal === 'cs' && <CustomerServiceModal onClose={() => setModal(null)} />}
+      {modal === 'sub' && <SubscriptionModal onClose={() => setModal(null)} />}
     </div>
   )
 }
