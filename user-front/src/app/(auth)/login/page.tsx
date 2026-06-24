@@ -1,17 +1,6 @@
-import { LoginForm } from "@/components/auth/LoginForm";
+import { redirect } from "next/navigation";
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams?: { error?: string };
-}) {
-  return (
-    <main className="auth-page">
-      <section className="auth-panel">
-        <p className="eyebrow">ATHENA DOCTRINE</p>
-        <h1>로그인</h1>
-        <LoginForm initialError={searchParams?.error ?? ""} />
-      </section>
-    </main>
-  );
+// 로그인 전용 페이지 폐지 — 로그인은 메인(/)의 LOG IN 노드 → 구글 OAuth로 통합.
+export default function LoginPage() {
+  redirect("/");
 }

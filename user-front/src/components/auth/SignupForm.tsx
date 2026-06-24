@@ -128,7 +128,7 @@ export function SignupForm({ onComplete, onBack }: SignupFormProps) {
 
         {/* 우: 약관 스크롤 (고정 폰트 + 스크롤) */}
         <div className="border border-white/30 rounded p-5 max-h-[55vh] overflow-y-auto">
-          <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-white/75 font-pixel">
+          <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-white/35 font-pixel">
 {PRIVACY_POLICY}
           </pre>
         </div>

@@ -12,12 +12,10 @@ import { SubscriptionModal } from '@/components/main/SubscriptionModal'
 
 interface TechTreeProps {
   onLoginClick: () => void;
-  onSignupClick: () => void;
 }
 
 export function TechTree({ onLoginClick }: TechTreeProps) {
   const { user, logout } = useAuth()
-  const [focusLabel, setFocusLabel] = useState<string>('')
   const [showMember, setShowMember] = useState(false)
   const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub'>(null)
 
@@ -26,8 +24,8 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
       <div className="athena-noise pointer-events-none absolute inset-0 z-0" />
 
       <TopBar
-        rightLabel={user ? focusLabel : 'LOG IN'}
-        onRightClick={user ? undefined : onLoginClick}
+        rp={user?.rp_balance ?? 0}
+        onRpClick={() => setModal('shop')}
         showLogout={!!user}
         onLogout={logout}
       />
@@ -37,7 +35,6 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
           themeId="main-tree"
           isLoggedIn={!!user}
           onLoginClick={onLoginClick}
-          onFocusChange={setFocusLabel}
           onCenterClick={() => setShowMember((v) => !v)}
           onOpenShop={() => setModal('shop')}
         />

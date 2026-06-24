@@ -1,61 +1,40 @@
 'use client'
 
-import { LogOut, Maximize2, X } from 'lucide-react'
+import { LogOut, Square } from 'lucide-react'
 
 interface TopBarProps {
-  rightLabel?: string
-  showClose?: boolean
+  rp?: number
+  onRpClick?: () => void
   showLogout?: boolean
-  onRightClick?: () => void
-  onClose?: () => void
   onLogout?: () => void
 }
 
-export function TopBar({ rightLabel, showClose, showLogout, onRightClick, onClose, onLogout }: TopBarProps) {
+export function TopBar({ rp, onRpClick, showLogout, onLogout }: TopBarProps) {
   return (
     <>
-      <div className="absolute top-0 left-0 right-0 z-40 pointer-events-none athena-grid-bg">
+      {/* 헤더: 빨간선이 글자 세로 중앙 관통, 로고(좌) + RP 카운터(우) */}
+      <div className="absolute top-0 left-0 right-0 z-40 athena-grid-bg pointer-events-none">
         <div className="athena-noise absolute inset-0 -z-10" />
-        
-        {/* Thin toolbar for the title and line */}
         <div className="relative h-16">
-          {/* Unbroken red rule */}
           <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-red-600" />
-          
-          {/* Title overlapping the red line */}
-          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex items-center px-6">
+          <div className="absolute inset-0 flex items-center justify-between px-6">
             <h1 className="font-pixel text-2xl text-white tracking-[0.15em] leading-none drop-shadow-md">
               ATHENA DOCTRINE
             </h1>
+            <button
+              onClick={onRpClick}
+              className="pointer-events-auto flex items-center gap-2 font-pixel text-base text-white/90 hover:text-red-500 tracking-widest transition-colors"
+              aria-label="RP / 상점"
+            >
+              <Square size={13} strokeWidth={2} aria-hidden />
+              {(rp ?? 0).toLocaleString()}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Buttons completely outside the toolbar's background, floating independently */}
-      <div className="absolute top-20 right-6 z-40 pointer-events-auto flex flex-col items-end gap-3">
-        {showClose && (
-          <button
-            onClick={onClose}
-            aria-label="닫기"
-            className="text-white/70 hover:text-white p-1 transition-colors"
-          >
-            <X size={20} strokeWidth={1.5} />
-          </button>
-        )}
-        
-        {!showClose && rightLabel ? (
-          <div className="flex items-center gap-3 border border-white/30 bg-black/60 rounded-xl px-4 py-2">
-            <button
-              onClick={onRightClick}
-              className="font-pixel text-base text-red-500 tracking-widest hover:text-red-400 transition-colors"
-            >
-              {rightLabel}
-            </button>
-            <Maximize2 size={14} strokeWidth={1.5} className="text-white/70" />
-          </div>
-        ) : null}
-
-        {!showClose && showLogout && (
+      {showLogout && (
+        <div className="absolute top-20 right-6 z-40 flex flex-col items-end gap-3">
           <button
             onClick={onLogout}
             aria-label="로그아웃"
@@ -65,8 +44,8 @@ export function TopBar({ rightLabel, showClose, showLogout, onRightClick, onClos
             <LogOut size={16} strokeWidth={1.5} />
             <span className="font-pixel text-base tracking-widest">LOGOUT</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </>
   )
 }
