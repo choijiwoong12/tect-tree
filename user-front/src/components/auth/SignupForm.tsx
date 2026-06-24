@@ -34,7 +34,6 @@ export function SignupForm({ onSuccess }: { onSuccess?: () => void }) {
 
       if (signUpError) throw signUpError;
       
-      alert("회원가입이 완료되었습니다. 로그인 해주세요.");
       if (onSuccess) onSuccess();
       else router.push("/");
     } catch (err: any) {

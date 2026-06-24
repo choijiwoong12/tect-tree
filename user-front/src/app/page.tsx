@@ -5,9 +5,10 @@ import Image from 'next/image'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { SignupForm } from '@/components/auth/SignupForm'
 import { TechTree } from '@/components/tree/TechTree'
+import { CallSignWizard } from '@/components/callsign/CallSignWizard'
 import { Minimize2 } from 'lucide-react'
 
-type Step = 'INTRO_PLAYING' | 'MAIN_TREE' | 'LOGIN_MODAL' | 'SIGNUP_MODAL';
+type Step = 'INTRO_PLAYING' | 'MAIN_TREE' | 'LOGIN_MODAL' | 'SIGNUP_MODAL' | 'CALLSIGN';
 
 export default function RootPage() {
   const [step, setStep] = useState<Step>('INTRO_PLAYING')
@@ -109,7 +110,7 @@ export default function RootPage() {
                     onSignupClick={() => setStep('SIGNUP_MODAL')}
                   />
                 ) : (
-                  <SignupForm onSuccess={() => setStep('LOGIN_MODAL')} />
+                  <SignupForm onSuccess={() => setStep('CALLSIGN')} />
                 )}
               </div>
 
@@ -122,6 +123,16 @@ export default function RootPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {step === 'CALLSIGN' && (
+        <div className="fixed inset-0 z-[100] bg-black overflow-auto">
+          {/* TODO: 완료 시 콜사인을 users 프로필(Supabase)에 저장 */}
+          <CallSignWizard
+            onComplete={() => setStep('MAIN_TREE')}
+            onBack={() => setStep('SIGNUP_MODAL')}
+          />
         </div>
       )}
     </main>

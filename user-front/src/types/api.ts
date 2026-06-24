@@ -1,5 +1,3 @@
-// Keep in sync with back/app/schemas/*.py
-
 export interface User {
   id: string; // UUID from Supabase auth.users
   email: string;
@@ -7,12 +5,6 @@ export interface User {
   rp_balance: number;
   profile_image_url: string | null;
   created_at: string;
-}
-
-export interface TokenPair {
-  access_token: string;
-  refresh_token: string;
-  token_type: "bearer";
 }
 
 export interface RpTransaction {
