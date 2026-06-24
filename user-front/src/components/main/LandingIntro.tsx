@@ -63,10 +63,6 @@ export function LandingIntro({ onEnter }: { onEnter: () => void }) {
     <div
       className={`absolute inset-0 bg-black overflow-hidden transition-opacity duration-700 ease-in-out ${leaving ? "opacity-0" : "opacity-100"}`}
     >
-      <p className="absolute top-12 left-1/2 -translate-x-1/2 font-pixel text-xs text-white/30 tracking-[0.25em] select-none pointer-events-none">
-        올리브 가지를 아테나에게
-      </p>
-
       {/* 아테나 (우측, 고정) */}
       <div className="absolute right-[16%] top-1/2 -translate-y-1/2 pointer-events-none">
         <img
