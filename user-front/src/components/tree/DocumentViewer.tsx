@@ -1,132 +1,128 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DocumentViewerProps {
   label: string;
   onClose: () => void;
 }
 
+// 프레임: node_viewer (다크/화이트) + 스크롤디테일
+// - 제목(빨강) + 부제 + 본문, 다크/화이트 토글, 우측 스크롤=목차 레일(읽으면 원 채움, 클릭 시 이동)
+// - 헤더 로고 클릭 → 메인(트리)으로 복귀
+// TODO: 제목/부제/본문/목차는 어드민 document_nodes(body_content 등) 연동 후 실제 값으로.
+const SECTIONS = [
+  { title: "서장", body: "여기에 추후 어드민 document_nodes에서 불러온 본문(body_content)이 들어갑니다. 현재는 레이아웃·인터랙션 확인용 임시 텍스트입니다." },
+  { title: "1장", body: "스크롤을 내리면 우측 목차 레일의 동그라미가 읽은 지점까지 차오릅니다. 마치 게임의 자동 세이브 포인트처럼 진행 위치를 표시합니다." },
+  { title: "2장", body: "우측 목차의 동그라미를 클릭하면 해당 위치로 즉시 이동합니다. 본문은 고정 폰트로 표시되며 영역 안에서 스크롤됩니다." },
+  { title: "3장", body: "상단의 토글로 다크 모드와 화이트 모드를 전환할 수 있습니다. 헤더의 ATHENA DOCTRINE 로고를 누르면 트리 메인으로 빠져나갑니다." },
+  { title: "종장", body: "실제 서비스에서는 노드별로 서로 다른 분량의 문서가 들어가며, 목차 섹션 수도 문서에 따라 달라집니다." },
+];
+
 export function DocumentViewer({ label, onClose }: DocumentViewerProps) {
   const [mounted, setMounted] = useState(false);
   const [isLightMode, setIsLightMode] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 40;
+  const [readCount, setReadCount] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
-  const toggleTheme = () => setIsLightMode((prev) => !prev);
-  
-  const handlePrev = () => setCurrentPage((p) => Math.max(1, p - 1));
-  const handleNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
+  function handleScroll() {
+    const c = containerRef.current;
+    if (!c) return;
+    const mid = c.scrollTop + c.clientHeight * 0.35;
+    let count = 0;
+    sectionRefs.current.forEach((el) => {
+      if (el && el.offsetTop <= mid) count++;
+    });
+    setReadCount(Math.max(1, count));
+  }
 
-  // 모드별 테마 클래스 지정
-  const bgClass = isLightMode ? "bg-[#f8f9fa]" : "bg-[#0a0a0a]";
-  const textClass = isLightMode ? "text-neutral-900" : "text-neutral-100";
-  const borderClass = isLightMode ? "border-neutral-300" : "border-neutral-700";
-  const mutedTextClass = isLightMode ? "text-neutral-400" : "text-neutral-600";
-  const hoverTextClass = isLightMode ? "hover:text-neutral-600" : "hover:text-neutral-300";
-  const hoverBorderClass = isLightMode ? "hover:border-neutral-400" : "hover:border-neutral-500";
-  const toggleBgClass = isLightMode ? "bg-neutral-400" : "bg-neutral-600";
+  function jumpTo(i: number) {
+    const el = sectionRefs.current[i];
+    const c = containerRef.current;
+    if (el && c) c.scrollTo({ top: el.offsetTop, behavior: "smooth" });
+  }
+
+  const bg = isLightMode ? "bg-[#f5f5f5]" : "bg-[#0a0a0a]";
+  const text = isLightMode ? "text-neutral-900" : "text-neutral-100";
+  const muted = isLightMode ? "text-neutral-500" : "text-neutral-400";
+  const railLine = isLightMode ? "bg-neutral-300" : "bg-neutral-700";
+  const dotEmpty = isLightMode ? "border-neutral-400" : "border-neutral-600";
+  const dotFill = isLightMode ? "bg-neutral-800 border-neutral-800" : "bg-white border-white";
 
   if (!mounted) return null;
 
   return createPortal(
-    <div
-      className={`fixed inset-0 z-[100] flex flex-col ${bgClass} ${textClass} transition-colors duration-300 overflow-hidden`}
-    >
-      {/* Top Header: 사이트 이름 및 닫기 버튼 */}
-      <div className="flex justify-center items-center py-10">
-        <button
-          onClick={onClose}
-          className={`font-pixel text-xl tracking-[0.2em] transition-colors ${mutedTextClass} ${hoverTextClass}`}
-          title="메인으로 나가기"
-        >
-          ATHENA DOCTRINE
-        </button>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 w-full max-w-6xl mx-auto px-8 md:px-16 flex relative">
-        {/* Left Arrow */}
-        <div className="absolute left-0 inset-y-0 flex items-center">
+    <div className={`fixed inset-0 z-[100] flex flex-col ${bg} ${text} transition-colors duration-300`}>
+      {/* 헤더: 빨간선 관통 로고(좌) + 다크/화이트 토글(우) */}
+      <div className="relative h-16 shrink-0">
+        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-red-600" />
+        <div className="absolute inset-0 flex items-center justify-between px-6">
           <button
-            onClick={handlePrev}
-            disabled={currentPage === 1}
-            className={`p-2 rounded-full border transition-all ${
-              currentPage === 1
-                ? "opacity-20 cursor-not-allowed border-transparent"
-                : `${borderClass} ${mutedTextClass} ${hoverTextClass} ${hoverBorderClass}`
-            }`}
+            onClick={onClose}
+            title="메인으로 나가기"
+            className="font-pixel text-xl tracking-[0.15em] leading-none drop-shadow-md"
           >
-            <ChevronLeft size={28} strokeWidth={1} />
+            ATHENA DOCTRINE
+          </button>
+          <button
+            onClick={() => setIsLightMode((v) => !v)}
+            aria-label="테마 전환"
+            className={`relative inline-flex h-[22px] w-[42px] items-center rounded-full ${isLightMode ? "bg-neutral-400" : "bg-neutral-600"}`}
+          >
+            <span
+              className={`inline-block h-[14px] w-[14px] rounded-full bg-white transition-transform duration-200 ${isLightMode ? "translate-x-[24px]" : "translate-x-[4px]"}`}
+            />
           </button>
         </div>
+      </div>
 
-        {/* Text Content Container */}
-        <div className="flex-1 px-12 md:px-24 overflow-y-auto pb-10 custom-scrollbar">
-          <h2 className="text-2xl font-bold mb-12 tracking-wide break-keep">
-            {label}
-          </h2>
-          
-          {/* Dummy Content - 추후 Supabase 연동 */}
-          <div className="space-y-8 leading-loose text-[15px] md:text-base opacity-90 break-keep">
-            <p>
-              여기에 추후 Supabase에서 불러온 실제 텍스트 데이터가 들어갈 예정입니다.
-              현재는 페이지 레이아웃과 디자인 프레임만 완성되어 있으며, 내용은 임시로 채워져 있습니다.
-            </p>
-            <p>
-              좌우 화살표를 클릭하면 페이지가 넘어가는 액션을 테스트해볼 수 있으며,
-              하단의 테마 스위치를 클릭하면 제공된 피그마 디자인과 같이 라이트 모드와 다크 모드가 실시간으로 전환됩니다.
-            </p>
-            <p>
-              또한 상단의 <b>ATHENA DOCTRINE</b> 로고를 클릭하면 즉시 뷰어를 종료하고 원래의 테크 트리 메인 화면으로 빠져나갑니다.
-              이 뷰어 컴포넌트는 트리 화면 위를 완전히 덮는 전체 화면 오버레이 형태로 렌더링됩니다.
-            </p>
+      {/* 본문 + 우측 목차 레일 */}
+      <div className="flex-1 min-h-0 w-full max-w-5xl mx-auto px-8 md:px-16 flex gap-8">
+        <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-10 pr-4">
+          <h1 className="font-pixel text-4xl md:text-5xl text-red-600 tracking-wider mb-3 break-keep">{label}</h1>
+          <p className={`text-base md:text-lg mb-12 ${isLightMode ? "text-emerald-700" : "text-emerald-400"} break-keep`}>
+            인간 의식의 탄생을 추동한 존재론적 이정표
+          </p>
+
+          <div className="space-y-12 leading-loose text-[15px] md:text-base break-keep">
+            {SECTIONS.map((s, i) => (
+              <div
+                key={i}
+                ref={(el) => {
+                  sectionRefs.current[i] = el;
+                }}
+              >
+                <p>{s.body}</p>
+              </div>
+            ))}
+            <div className="h-[40vh]" aria-hidden />
           </div>
         </div>
 
-        {/* Right Arrow */}
-        <div className="absolute right-0 inset-y-0 flex items-center">
-          <button
-            onClick={handleNext}
-            disabled={currentPage === totalPages}
-            className={`p-2 rounded-full border transition-all ${
-              currentPage === totalPages
-                ? "opacity-20 cursor-not-allowed border-transparent"
-                : `${borderClass} ${mutedTextClass} ${hoverTextClass} ${hoverBorderClass}`
-            }`}
-          >
-            <ChevronRight size={28} strokeWidth={1} />
-          </button>
+        {/* 우측 목차 레일 */}
+        <div className="relative w-8 shrink-0 flex flex-col items-center py-10">
+          <div className={`absolute top-10 bottom-10 w-px ${railLine}`} />
+          <div className="relative flex flex-col justify-between h-full">
+            {SECTIONS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => jumpTo(i)}
+                aria-label={`섹션 ${i + 1}로 이동`}
+                className={`w-3 h-3 rounded-full border transition-colors ${i < readCount ? dotFill : `bg-transparent ${dotEmpty}`}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Bottom Footer: 테마 스위치 & 페이지네이션 */}
-      <div className="py-8 px-12 md:px-24 flex justify-end items-center gap-5">
-        {/* Theme Toggle Switch */}
-        <button
-          onClick={toggleTheme}
-          aria-label="테마 전환"
-          className={`relative inline-flex h-[22px] w-[42px] items-center rounded-full transition-colors focus:outline-none ${toggleBgClass}`}
-        >
-          <span
-            className={`inline-block h-[14px] w-[14px] transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
-              isLightMode ? "translate-x-[24px]" : "translate-x-[4px]"
-            }`}
-          />
-        </button>
-
-        {/* Page Counter */}
-        <span className={`font-pixel text-[15px] tracking-[0.15em] ${mutedTextClass}`}>
-          {currentPage} / {totalPages}
-        </span>
+      <div className={`shrink-0 py-4 px-6 text-right font-pixel text-xs ${muted}`}>
+        {readCount} / {SECTIONS.length}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
