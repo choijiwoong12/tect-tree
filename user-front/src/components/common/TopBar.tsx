@@ -1,6 +1,6 @@
 'use client'
 
-import { LogOut, Square } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 
 interface TopBarProps {
   rp?: number
@@ -26,8 +26,11 @@ export function TopBar({ rp, onRpClick, showLogout, onLogout }: TopBarProps) {
               className="pointer-events-auto flex items-center gap-2 font-pixel text-base text-white/90 hover:text-red-500 tracking-widest transition-colors"
               aria-label="RP / 상점"
             >
-              <Square size={13} strokeWidth={2} aria-hidden />
-              {(rp ?? 0).toLocaleString()}
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden className="shrink-0">
+                <rect x="1" y="1" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <rect x="4.5" y="4.5" width="5" height="5" fill="currentColor" />
+              </svg>
+              {String(rp ?? 0).padStart(4, '0')}
             </button>
           </div>
         </div>
