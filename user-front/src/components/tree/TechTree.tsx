@@ -5,6 +5,7 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { ReactFlowProvider } from '@xyflow/react'
 import { TreeCanvas } from './TreeCanvas'
 import { TopBar } from '@/components/common/TopBar'
+import { InfoPanel } from '@/components/main/InfoPanel'
 
 interface TechTreeProps {
   onLoginClick: () => void;
@@ -14,6 +15,7 @@ interface TechTreeProps {
 export function TechTree({ onLoginClick }: TechTreeProps) {
   const { user, logout } = useAuth()
   const [focusLabel, setFocusLabel] = useState<string>('')
+  const [showMember, setShowMember] = useState(false)
 
   return (
     <div className="relative w-full h-screen athena-grid-bg overflow-hidden">
@@ -32,8 +34,11 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
           isLoggedIn={!!user}
           onLoginClick={onLoginClick}
           onFocusChange={setFocusLabel}
+          onCenterClick={() => setShowMember((v) => !v)}
         />
       </ReactFlowProvider>
+
+      <InfoPanel user={user} showMember={showMember} />
     </div>
   )
 }

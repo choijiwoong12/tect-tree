@@ -46,9 +46,10 @@ interface TreeCanvasProps {
   isLoggedIn?: boolean
   onLoginClick?: () => void
   onFocusChange?: (label: string) => void
+  onCenterClick?: () => void
 }
 
-export function TreeCanvas({ isLoggedIn, onLoginClick, onFocusChange }: TreeCanvasProps) {
+export function TreeCanvas({ isLoggedIn, onLoginClick, onFocusChange, onCenterClick }: TreeCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, , onEdgesChange] = useEdgesState(initialEdges)
   const { rpBalance, setRpBalance, recentNodeId, setRecentNodeId } = useAppStore()
@@ -77,10 +78,15 @@ export function TreeCanvas({ isLoggedIn, onLoginClick, onFocusChange }: TreeCanv
       return
     }
     if (!isLoggedIn) return
+    if (node.id === '1') {
+      // 로그인 후 중앙(콜사인) 노드 클릭 → 좌하단 자기정보 토글
+      onCenterClick?.()
+      return
+    }
     if (node.data.status === 'locked') return
     setSelectedNode(node)
     if (onFocusChange) onFocusChange((node.data.label as string).replace(/\n/g, ' '))
-  }, [isLoggedIn, onLoginClick, onFocusChange])
+  }, [isLoggedIn, onLoginClick, onFocusChange, onCenterClick])
 
   const handleUnlock = () => {
     if (!selectedNode) return

@@ -25,7 +25,7 @@ export function TopBar({ rightLabel, showClose, showLogout, onRightClick, onClos
           {/* Title overlapping the red line */}
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex items-center px-6">
             <h1 className="font-pixel text-2xl text-white tracking-[0.15em] leading-none drop-shadow-md">
-              Athena Doctrine
+              ATHENA DOCTRINE
             </h1>
           </div>
         </div>
