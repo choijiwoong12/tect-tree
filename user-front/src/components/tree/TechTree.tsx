@@ -16,7 +16,7 @@ interface TechTreeProps {
 
 export function TechTree({ onLoginClick }: TechTreeProps) {
   const { user, logout } = useAuth()
-  const [showMember, setShowMember] = useState(false)
+  const [showMember, setShowMember] = useState(true)
   const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub'>(null)
 
   return (

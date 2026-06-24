@@ -1,9 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import type { User } from "@/types/api";
 import { BUSINESS_INFO } from "@/content/business";
 
-// 좌하단 패널: 기본 = 사업자 정보. 로그인 + 중앙 노드 클릭(showMember) 시 = 회원 정보 (같은 자리 토글).
+// 좌하단 패널:
+// - 로그인 전: 사업자 정보(표시의무).
+// - 로그인 후: 회원 정보. 중앙 노드 클릭으로 on/off 토글(showMember). off면 숨김.
+//   사업자 정보는 토글이 아니라 별도 페이지(/business)에서 열람.
 export function InfoPanel({
   user,
   showMember,
@@ -17,16 +21,18 @@ export function InfoPanel({
   onOpenShop?: () => void;
   onOpenSubscriptionManage?: () => void;
 }) {
-  const isMember = !!user && showMember;
+  // 로그인 + 토글 off → 패널 숨김
+  if (user && !showMember) return null;
+
   const subscribed = false; // TODO: 실제 구독 상태 연동
   const onSubscriptionClick = subscribed ? onOpenSubscriptionManage : onOpenShop;
 
   return (
     <div className="absolute bottom-6 left-6 z-40 font-pixel text-white text-xs leading-relaxed max-w-sm pointer-events-auto">
       <div className="border border-white/25 bg-black/40 rounded px-5 py-4">
-        {isMember ? (
+        {user ? (
           <MemberInfo
-            user={user as User}
+            user={user}
             onOpenCustomerService={onOpenCustomerService}
             onSubscriptionClick={onSubscriptionClick}
           />
@@ -50,7 +56,6 @@ function BusinessInfo() {
       <div className="text-white/70">
         {BUSINESS_INFO.email} · {BUSINESS_INFO.phone}
       </div>
-      {/* TODO: 약관/개인정보 모달 또는 페이지 연결 */}
       <div className="mt-2 text-red-500">( 이용약관 )&nbsp;&nbsp;( 개인정보처리방침 )</div>
     </div>
   );
@@ -77,10 +82,11 @@ function MemberInfo({
       <button onClick={onSubscriptionClick} className="block text-left hover:text-white/70 transition-colors">
         MONTHLY SUBSCRIPTION OFF
       </button>
-      <div className="mt-2 flex gap-3 text-red-500">
+      <div className="mt-2 flex gap-3 text-red-500 flex-wrap">
         <button onClick={onOpenCustomerService} className="hover:text-red-400 transition-colors">( CUSTOMER SERVICE )</button>
         {/* TODO: NOTICE 모달 */}
         <button className="hover:text-red-400 transition-colors">( NOTICE )</button>
+        <Link href="/business" className="hover:text-red-400 transition-colors">( 사업자 정보 )</Link>
       </div>
     </div>
   );
