@@ -1,13 +1,6 @@
-import { SignupForm } from "@/components/auth/SignupForm";
+import { redirect } from "next/navigation";
 
+// 회원가입은 메인(/) 흐름의 전체화면 단계로 통합됨 → 레거시 라우트는 메인으로 리다이렉트.
 export default function SignupPage() {
-  return (
-    <main className="auth-page">
-      <section className="auth-panel">
-        <p className="eyebrow">ATHENA DOCTRINE</p>
-        <h1>회원가입</h1>
-        <SignupForm />
-      </section>
-    </main>
-  );
+  redirect("/");
 }

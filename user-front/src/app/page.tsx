@@ -49,7 +49,7 @@ export default function RootPage() {
     }
   }, [step, treeVisible])
 
-  const isAuthModal = step === 'LOGIN_MODAL' || step === 'SIGNUP_MODAL'
+  const isAuthModal = step === 'LOGIN_MODAL'
 
   return (
     <main className="min-h-screen text-white relative overflow-hidden bg-black">
@@ -104,14 +104,10 @@ export default function RootPage() {
 
             <div className="flex flex-col md:flex-row items-center justify-between gap-8 h-full px-12 py-12">
               <div className="flex-1 w-full flex justify-center md:justify-start">
-                {step === 'LOGIN_MODAL' ? (
-                  <LoginForm
-                    onSuccess={() => setStep('MAIN_TREE')}
-                    onSignupClick={() => setStep('SIGNUP_MODAL')}
-                  />
-                ) : (
-                  <SignupForm onSuccess={() => setStep('CALLSIGN')} />
-                )}
+                <LoginForm
+                  onSuccess={() => setStep('MAIN_TREE')}
+                  onSignupClick={() => setStep('SIGNUP_MODAL')}
+                />
               </div>
 
               <div className="flex flex-1 justify-center items-end self-stretch">
@@ -123,6 +119,15 @@ export default function RootPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {step === 'SIGNUP_MODAL' && (
+        <div className="fixed inset-0 z-[100] bg-black overflow-auto">
+          <SignupForm
+            onComplete={() => setStep('CALLSIGN')}
+            onBack={() => setStep('MAIN_TREE')}
+          />
         </div>
       )}
 
