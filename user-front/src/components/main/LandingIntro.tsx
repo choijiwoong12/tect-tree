@@ -74,7 +74,7 @@ export function LandingIntro({ onEnter }: { onEnter: () => void }) {
           src="/assets/intro-athena.png"
           alt="Athena"
           draggable={false}
-          className="h-[72vh] max-h-[720px] w-auto object-contain select-none"
+          className="h-[72vh] max-h-[720px] w-auto object-contain select-none mix-blend-screen"
         />
       </div>
 
@@ -87,7 +87,7 @@ export function LandingIntro({ onEnter }: { onEnter: () => void }) {
           draggable={false}
           onPointerDown={onPointerDown}
           style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-          className="h-[46vh] max-h-[460px] w-auto object-contain select-none touch-none cursor-grab active:cursor-grabbing"
+          className="h-[46vh] max-h-[460px] w-auto object-contain select-none touch-none cursor-grab active:cursor-grabbing mix-blend-screen"
         />
       </div>
     </div>

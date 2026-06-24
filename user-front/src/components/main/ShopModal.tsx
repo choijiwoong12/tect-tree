@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { RP_PACKAGES, SUBSCRIPTION_PRICE } from "@/content/shop";
 
-// 프레임: 메인화면 (SHOP 모달) — 표 선 없음, 점선 리더, 월구독은 빨강, 선택 시 우측에 ( > ). 모달 밖 클릭 닫힘.
+// 프레임: 메인화면 (SHOP 모달) — 표 선 없음, 점선 리더, 월구독 빨강.
+// 선택은 행이 빨간색으로 표시되고, 결제 이동 화살표는 표 왼쪽에 단독·고정 위치로 1개만.
 export function ShopModal({ onClose }: { onClose: () => void }) {
   const [selected, setSelected] = useState<string | null>(null);
   const krw = (n: number) => n.toLocaleString();
@@ -19,7 +20,6 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
         <span className="whitespace-pre">{left}</span>
         <span className="flex-1 border-b border-dashed border-current opacity-50 mx-2" />
         <span className="whitespace-pre w-32 text-right">{krw(price)} KRW</span>
-        <span className="w-12 shrink-0 text-center">{active ? "( > )" : ""}</span>
       </button>
     );
   }
@@ -32,13 +32,32 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
       >
         <h2 className="text-3xl mb-8">SHOP</h2>
         <div className="text-sm mb-3 tracking-widest">RP</div>
-        <div className="text-base">
-          {RP_PACKAGES.map((p) =>
-            row(`rp-${p.rp}`, `${krw(p.rp)} RP${p.bonus ? `  +  ${krw(p.bonus)}  BONUS` : ""}`, p.price, false)
-          )}
-          <div className="h-5" />
-          {row("subscription", "MONTHLY SUBSCRIPTION PLAN", SUBSCRIPTION_PRICE, true)}
+
+        <div className="flex">
+          {/* 좌측 단독 화살표 — 상품 선택 시 고정 위치에 1개만, 클릭 시 결제로 이동 */}
+          <div className="w-14 shrink-0 flex items-center justify-center">
+            {selected && (
+              <button
+                onClick={() => {
+                  /* TODO: 결제창으로 이동 (Toss·Supabase 연동 후) */
+                }}
+                className="text-red-600 hover:text-red-500 text-lg"
+                aria-label="결제로 이동"
+              >
+                {"( > )"}
+              </button>
+            )}
+          </div>
+
+          <div className="flex-1 text-base">
+            {RP_PACKAGES.map((p) =>
+              row(`rp-${p.rp}`, `${krw(p.rp)} RP${p.bonus ? `  +  ${krw(p.bonus)}  BONUS` : ""}`, p.price, false)
+            )}
+            <div className="h-5" />
+            {row("subscription", "MONTHLY SUBSCRIPTION PLAN", SUBSCRIPTION_PRICE, true)}
+          </div>
         </div>
+
         <p className="mt-6 text-xs text-neutral-500">상품을 선택하면 결제로 이동합니다.</p>
       </div>
     </div>
