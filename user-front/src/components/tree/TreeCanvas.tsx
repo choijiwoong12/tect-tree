@@ -47,9 +47,10 @@ interface TreeCanvasProps {
   onLoginClick?: () => void
   onFocusChange?: (label: string) => void
   onCenterClick?: () => void
+  onOpenShop?: () => void
 }
 
-export function TreeCanvas({ isLoggedIn, onLoginClick, onFocusChange, onCenterClick }: TreeCanvasProps) {
+export function TreeCanvas({ isLoggedIn, onLoginClick, onFocusChange, onCenterClick, onOpenShop }: TreeCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, , onEdgesChange] = useEdgesState(initialEdges)
   const { rpBalance, setRpBalance, recentNodeId, setRecentNodeId } = useAppStore()
@@ -158,9 +159,9 @@ export function TreeCanvas({ isLoggedIn, onLoginClick, onFocusChange, onCenterCl
           label={(selectedNode.data.label as string).replace(/\n/g, ' ')}
           cost={(selectedNode.data.cost as number) || 0}
           rpBalance={rpBalance}
-          status="unlockable"
           onClose={() => setSelectedNode(null)}
-          onUnlock={handleUnlock}
+          onUnlockRP={handleUnlock}
+          onOpenShop={() => { setSelectedNode(null); onOpenShop?.() }}
         />
       )}
 

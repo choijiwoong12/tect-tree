@@ -1,26 +1,28 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
+// 프레임: 메인화면 (노드열람 모달) — RP로 열람 / 구독권으로 열람. 부족·무구독 시 SHOP.
 interface UnlockModalProps {
   label: string;
   cost: number;
   rpBalance: number;
-  status: "unlocked" | "unlockable";
+  hasSubscription?: boolean;
   onClose: () => void;
-  onUnlock: () => void;
+  onUnlockRP: () => void;
+  onUnlockSubscription?: () => void;
+  onOpenShop: () => void;
 }
 
 export function UnlockModal({
   label,
   cost,
   rpBalance,
-  status,
+  hasSubscription = false,
   onClose,
-  onUnlock,
+  onUnlockRP,
+  onUnlockSubscription,
+  onOpenShop,
 }: UnlockModalProps) {
-  const router = useRouter();
-  const insufficient = rpBalance < cost;
+  const canRP = rpBalance >= cost;
 
   return (
     <div
@@ -28,40 +30,33 @@ export function UnlockModal({
       onClick={onClose}
     >
       <div
-        className="athena-corner-frame relative bg-black/90 border border-white/10 px-12 py-10 w-[420px] text-center"
+        className="bg-neutral-100 text-black rounded px-12 py-10 w-[460px] max-w-[90vw] font-pixel"
         onClick={(e) => e.stopPropagation()}
       >
-        <span className="corner-bl" />
-        <span className="corner-br" />
+        <h2 className="text-3xl mb-6">{label}</h2>
+        <p className="text-xl mb-5">{cost.toLocaleString()} RP</p>
 
-        <p className="font-pixel text-xl text-white tracking-widest mb-8">
-          [ {label} ]
-        </p>
+        <p className="text-sm mb-1">{"> MONTHLY SUBSCRIPTION "}{hasSubscription ? "ON" : "OFF"}</p>
+        <p className="text-sm mb-8">{"> 보유 RP : "}{rpBalance.toLocaleString()} RP</p>
 
-        <div className="space-y-2 mb-8">
-          <p className="font-pixel text-lg text-white tracking-wider">
-            필요 RP : <span className={insufficient ? "text-red-500" : "text-white"}>{cost} RP</span>
-          </p>
-          <p className="font-pixel text-lg text-white tracking-wider">
-            보유 RP : <span className={insufficient ? "text-red-500" : "text-emerald-400"}>{rpBalance} RP</span>
-          </p>
+        <div className="flex flex-col gap-3 items-start text-lg">
+          <button
+            onClick={() => (canRP ? onUnlockRP() : onOpenShop())}
+            className="hover:text-red-600 transition-colors"
+          >
+            ( RP로 열람하기 )
+          </button>
+          <button
+            onClick={() => (hasSubscription && onUnlockSubscription ? onUnlockSubscription() : onOpenShop())}
+            className="hover:text-red-600 transition-colors"
+          >
+            ( 구독권으로 열람하기 )
+          </button>
         </div>
 
-        {insufficient ? (
-          <button
-            onClick={() => router.push("/store")}
-            className="font-pixel text-lg text-red-500 hover:text-red-400 tracking-widest transition-colors"
-          >
-            {"> RP 충전"}
-          </button>
-        ) : (
-          <button
-            onClick={onUnlock}
-            className="font-pixel text-lg text-red-500 hover:text-red-400 tracking-widest transition-colors"
-          >
-            {"> 해금하기"}
-          </button>
-        )}
+        <p className="mt-6 text-xs text-neutral-500">
+          RP가 부족하거나 구독권이 없으면 SHOP으로 이동합니다.
+        </p>
       </div>
     </div>
   );
