@@ -105,6 +105,17 @@ export default function RootPage() {
           />
         </div>
       )}
+
+      {/* 개발용 임시 진입점: 첫 로그인 라우팅(회원가입→콜사인) 연결 전까지 리뷰용. 프로덕션엔 숨김. TODO 제거 */}
+      {step === 'MAIN_TREE' && process.env.NODE_ENV !== 'production' && (
+        <button
+          onClick={() => setStep('SIGNUP_MODAL')}
+          title="개발용: 회원가입/콜사인 미리보기"
+          className="fixed bottom-4 right-4 z-[90] font-pixel text-[11px] text-white/40 hover:text-white/80 border border-white/20 bg-black/60 rounded px-3 py-1.5 transition-colors"
+        >
+          ▶ 가입/콜사인 미리보기 (dev)
+        </button>
+      )}
     </main>
   )
 }
