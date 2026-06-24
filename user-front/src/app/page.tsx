@@ -1,45 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import { SignupForm } from '@/components/auth/SignupForm'
 import { TechTree } from '@/components/tree/TechTree'
 import { CallSignWizard } from '@/components/callsign/CallSignWizard'
+import { LandingIntro } from '@/components/main/LandingIntro'
 import { createClient } from '@/lib/supabase/client'
 
 type Step = 'INTRO_PLAYING' | 'MAIN_TREE' | 'SIGNUP_MODAL' | 'CALLSIGN';
 
 export default function RootPage() {
   const [step, setStep] = useState<Step>('INTRO_PLAYING')
-  const [introFrame, setIntroFrame] = useState(1)
-  const [introOpacity, setIntroOpacity] = useState(1)
   const [treeVisible, setTreeVisible] = useState(false)
 
-  useEffect(() => {
-    if (step !== 'INTRO_PLAYING') return;
-
-    const playSequence = async () => {
-      setIntroFrame(1)
-      await new Promise(r => setTimeout(r, 600))
-      setIntroFrame(2)
-      await new Promise(r => setTimeout(r, 100))
-      setIntroFrame(3)
-      await new Promise(r => setTimeout(r, 100))
-      setIntroFrame(4)
-      await new Promise(r => setTimeout(r, 166))
-      setIntroFrame(5)
-      await new Promise(r => setTimeout(r, 166))
-      setIntroFrame(6)
-      await new Promise(r => setTimeout(r, 166))
-      setIntroOpacity(0)
-      await new Promise(r => setTimeout(r, 1000))
-      setStep('MAIN_TREE')
-    }
-
-    playSequence()
-  }, [step])
-
-  // Fade the main tree in from black once the intro is done.
+  // 인트로(올리브 드래그) 종료 후 트리를 검정에서 페이드인.
   useEffect(() => {
     if (step !== 'INTRO_PLAYING' && !treeVisible) {
       const id = setTimeout(() => setTreeVisible(true), 50)
@@ -61,20 +35,8 @@ export default function RootPage() {
   return (
     <main className="min-h-screen text-white relative overflow-hidden bg-black">
       {step === 'INTRO_PLAYING' && (
-        <div
-          className="absolute inset-0 z-50 bg-black flex items-center justify-center transition-opacity duration-1000 ease-in-out"
-          style={{ opacity: introOpacity }}
-        >
-          {[1, 2, 3, 4, 5, 6].map((num) => (
-            <Image
-              key={num}
-              src={`/assets/Intro${num}.webp`}
-              alt={`Intro Frame ${num}`}
-              fill
-              priority
-              className={`object-cover transition-none ${introFrame === num ? 'opacity-100' : 'opacity-0'}`}
-            />
-          ))}
+        <div className="absolute inset-0 z-50">
+          <LandingIntro onEnter={() => setStep('MAIN_TREE')} />
         </div>
       )}
 
