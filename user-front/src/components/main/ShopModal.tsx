@@ -55,8 +55,8 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
             {/* RP — (52,141) = Y231, Sam33 */}
             <div className="absolute left-[52px] top-[141px] font-pixel text-[33px] leading-none">RP</div>
 
-            {/* 가격표 — (52,221) = Y311, W628.5, Sam27 */}
-            <div className="absolute left-[52px] top-[221px] w-[628.5px] font-pixel text-[27px] leading-none">
+            {/* 가격표 — (52,221) = Y311, W628.5, Sam27. 오른쪽 여백(pr)으로 가격이 ( > ) 화살표와 안 겹치게 */}
+            <div className="absolute left-[52px] top-[221px] w-[628.5px] pr-[36px] font-pixel text-[27px] leading-none">
               {RP_PACKAGES.map((p) => (
                 <Row
                   key={p.rp}
@@ -101,7 +101,7 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
           <button
             onClick={handleArrow}
             aria-label={view === "list" ? "안내 보기" : "결제로 이동"}
-            className="absolute right-[44px] top-[55%] -translate-y-1/2 font-pixel text-[40px] leading-none text-black transition-colors hover:text-red-600"
+            className="absolute left-[679px] top-[281px] flex h-[34px] w-[60px] items-center justify-center font-pixel text-[24px] leading-none text-black transition-colors hover:text-red-600"
           >
             {"( > )"}
           </button>
