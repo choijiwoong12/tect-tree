@@ -5,6 +5,7 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { ReactFlowProvider } from '@xyflow/react'
 import { TreeCanvas } from './TreeCanvas'
 import { TopBar } from '@/components/common/TopBar'
+import { DesignOverlay } from '@/components/common/DesignOverlay'
 import { InfoPanel } from '@/components/main/InfoPanel'
 import { ShopModal } from '@/components/main/ShopModal'
 import { CustomerServiceModal } from '@/components/main/CustomerServiceModal'
@@ -22,13 +23,7 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
 
-      <TopBar
-        rp={user?.rp_balance ?? 0}
-        onRpClick={() => setModal('shop')}
-        showLogout={!!user}
-        onLogout={logout}
-      />
-
+      {/* 트리 캔버스 — 풀블리드 네이티브 배경(z-10). ReactFlow는 CSS 스케일 시 좌표가 틀어져 그대로 둔다. */}
       <ReactFlowProvider>
         <TreeCanvas
           themeId="main-tree"
@@ -39,13 +34,22 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
         />
       </ReactFlowProvider>
 
-      <InfoPanel
-        user={user}
-        showMember={showMember}
-        onOpenCustomerService={() => setModal('cs')}
-        onOpenShop={() => setModal('shop')}
-        onOpenSubscriptionManage={() => setModal('sub')}
-      />
+      {/* 상시 UI(헤더·정보) — 모달과 동일한 1920 스케일 레이어. 클릭은 통과(내부 요소만 auto). */}
+      <DesignOverlay z={40}>
+        <TopBar
+          rp={user?.rp_balance ?? 0}
+          onRpClick={() => setModal('shop')}
+          showLogout={!!user}
+          onLogout={logout}
+        />
+        <InfoPanel
+          user={user}
+          showMember={showMember}
+          onOpenCustomerService={() => setModal('cs')}
+          onOpenShop={() => setModal('shop')}
+          onOpenSubscriptionManage={() => setModal('sub')}
+        />
+      </DesignOverlay>
 
       {modal === 'shop' && <ShopModal onClose={() => setModal(null)} />}
       {modal === 'cs' && <CustomerServiceModal onClose={() => setModal(null)} />}

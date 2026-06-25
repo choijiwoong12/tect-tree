@@ -40,7 +40,7 @@ export function TopBar({ rp, onRpClick, showLogout, onLogout }: TopBarProps) {
       </div>
 
       {showLogout && (
-        <div className="absolute top-[84px] right-6 z-40 flex flex-col items-end gap-3">
+        <div className="pointer-events-auto absolute top-[84px] right-6 z-40 flex flex-col items-end gap-3">
           <button
             onClick={onLogout}
             aria-label="로그아웃"
