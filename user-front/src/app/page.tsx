@@ -6,6 +6,7 @@ import { TechTree } from '@/components/tree/TechTree'
 import { CallSignWizard } from '@/components/callsign/CallSignWizard'
 import { LandingIntro } from '@/components/main/LandingIntro'
 import { TopBar } from '@/components/common/TopBar'
+import { DesignFrame } from '@/components/common/DesignFrame'
 import { createClient } from '@/lib/supabase/client'
 
 type Step = 'INTRO_PLAYING' | 'MAIN_TREE' | 'SIGNUP_MODAL' | 'CALLSIGN';
@@ -51,23 +52,27 @@ export default function RootPage() {
       )}
 
       {step === 'SIGNUP_MODAL' && (
-        <div className="fixed inset-0 z-[100] bg-black overflow-auto">
-          <TopBar rp={0} />
-          <SignupForm
-            onComplete={() => setStep('CALLSIGN')}
-            onBack={() => setStep('MAIN_TREE')}
-          />
+        <div className="fixed inset-0 z-[100] bg-black">
+          <DesignFrame>
+            <TopBar rp={0} />
+            <SignupForm
+              onComplete={() => setStep('CALLSIGN')}
+              onBack={() => setStep('MAIN_TREE')}
+            />
+          </DesignFrame>
         </div>
       )}
 
       {step === 'CALLSIGN' && (
-        <div className="fixed inset-0 z-[100] bg-black overflow-auto">
-          <TopBar rp={0} />
+        <div className="fixed inset-0 z-[100] bg-black">
           {/* TODO: 완료 시 콜사인을 users 프로필(Supabase)에 저장 */}
-          <CallSignWizard
-            onComplete={() => setStep('MAIN_TREE')}
-            onBack={() => setStep('MAIN_TREE')}
-          />
+          <DesignFrame>
+            <TopBar rp={0} />
+            <CallSignWizard
+              onComplete={() => setStep('MAIN_TREE')}
+              onBack={() => setStep('MAIN_TREE')}
+            />
+          </DesignFrame>
         </div>
       )}
 
