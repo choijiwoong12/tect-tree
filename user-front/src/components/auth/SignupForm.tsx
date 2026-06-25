@@ -8,8 +8,11 @@ interface SignupFormProps {
   onBack?: () => void;
 }
 
-// 프레임: 회원가입 창 — 첫 로그인 시 프로필 입력 + 약관 동의 → 다음(콜사인 배정으로)
-export function SignupForm({ onComplete, onBack }: SignupFormProps) {
+// 프레임: 회원가입 창 (1920 기준 절대좌표).
+// 확정값: 타이틀 Sam3KRFont 64 @132,158 / 부제 NanumMyeongjo 25 @132,366 /
+//        이름·성별·나이 행 30px @132, Y491/588/685, W551. 입력칸 테두리 없음(허공), 입력 Sam3KRFont.
+// (연락처/체크박스/약관박스/다음 = 다음 배치 전까지 근사)
+export function SignupForm({ onComplete }: SignupFormProps) {
   const [name, setName] = useState("");
   const [gender, setGender] = useState<"남" | "여" | null>(null);
   const [age, setAge] = useState("");
@@ -18,142 +21,101 @@ export function SignupForm({ onComplete, onBack }: SignupFormProps) {
   const [agreeMarketing, setAgreeMarketing] = useState(false);
 
   const canNext =
-    name.trim() !== "" &&
-    gender !== null &&
-    age.trim() !== "" &&
-    phone.trim() !== "" &&
-    agreeRequired;
+    name.trim() !== "" && gender !== null && age.trim() !== "" && phone.trim() !== "" && agreeRequired;
 
   function handleNext() {
     if (!canNext) return;
-    // TODO: 프로필(name/gender/age/phone, 마케팅 동의)을 users 테이블에 저장.
-    //       현재 users 스키마에 name/age/sex/phone 컬럼이 없어 컬럼 추가 후 연결 필요.
+    // TODO: 프로필(name/gender/age/phone, 마케팅 동의) → users 테이블 저장 (스키마 컬럼 추가 후)
     onComplete();
   }
 
-  const inputClass =
-    "w-full bg-black border border-white/40 rounded text-white px-4 py-3 font-pixel tracking-wider placeholder:text-white/30 focus:outline-none focus:border-red-600 transition-colors";
+  const inputCls =
+    "flex-1 bg-transparent border-0 outline-none p-0 font-pixel text-[30px] text-white placeholder:text-white/30";
 
   return (
-    <div className="relative w-full min-h-full text-white px-8 md:px-16 py-12 font-pixel">
-      <h1 className="text-3xl md:text-5xl leading-tight tracking-wider">
+    <div className="relative w-full min-h-[1080px] text-white select-none">
+      {/* 타이틀 */}
+      <h1 className="absolute left-[132px] top-[158px] font-pixel text-[64px] leading-none text-white whitespace-nowrap">
         WELCOME TO THE
         <br />
         CAMPAIGN
       </h1>
 
-      <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16">
-        {/* 좌: 입력 */}
-        <div>
-          <p className="text-white/70 text-base mb-8">첫 로그인 시 정보 입력이 필요합니다.</p>
+      {/* 부제 */}
+      <p className="absolute left-[132px] top-[366px] font-myeongjo text-[25px] text-white/90">
+        첫 로그인 시 정보 입력이 필요합니다.
+      </p>
 
-          <div className="flex flex-col gap-6 max-w-md">
-            <label className="flex items-center gap-4">
-              <span className="w-16 shrink-0">이름</span>
-              <input
-                className={inputClass}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="입력"
-                maxLength={40}
-              />
-            </label>
-
-            <div className="flex items-center gap-4">
-              <span className="w-16 shrink-0">성별</span>
-              <div className="flex gap-3">
-                {(["남", "여"] as const).map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setGender(g)}
-                    className={`border rounded px-6 py-3 tracking-widest transition-colors ${
-                      gender === g ? "border-red-600 text-red-500" : "border-white/40 text-white/80 hover:border-white"
-                    }`}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <label className="flex items-center gap-4">
-              <span className="w-16 shrink-0">나이</span>
-              <input
-                className={inputClass}
-                value={age}
-                onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ""))}
-                placeholder="입력"
-                inputMode="numeric"
-                maxLength={3}
-              />
-            </label>
-
-            <label className="flex items-center gap-4">
-              <span className="w-16 shrink-0">연락처</span>
-              <input
-                className={inputClass}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="입력"
-                inputMode="tel"
-                maxLength={20}
-              />
-            </label>
-          </div>
-
-          <div className="mt-8 flex flex-col gap-3 text-sm">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreeRequired}
-                onChange={(e) => setAgreeRequired(e.target.checked)}
-                className="w-4 h-4 accent-red-600"
-              />
-              <span>
-                <span className="font-bold">개인정보처리방침</span> 및 <span className="font-bold">이용약관</span>에 동의합니다. (필수)
-              </span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreeMarketing}
-                onChange={(e) => setAgreeMarketing(e.target.checked)}
-                className="w-4 h-4 accent-red-600"
-              />
-              <span>마케팅 정보 수신에 동의합니다. (선택)</span>
-            </label>
-          </div>
-        </div>
-
-        {/* 우: 약관 스크롤 (고정 폰트 + 스크롤) */}
-        <div className="border border-white/30 rounded p-5 max-h-[55vh] overflow-y-auto">
-          <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-white/35 font-pixel">
-{PRIVACY_POLICY}
-          </pre>
-        </div>
+      {/* 이름 */}
+      <div className="absolute left-[132px] top-[491px] w-[551px] flex items-center font-pixel text-[30px] text-white">
+        <span className="w-[120px] shrink-0">이름</span>
+        <span className="shrink-0 mr-4">:</span>
+        <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="( 입력 )" maxLength={40} />
       </div>
 
-      {/* 하단 버튼 */}
-      <div className="mt-10 flex items-center justify-end gap-6 text-xl md:text-2xl">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="border border-white/40 rounded px-8 py-2 tracking-widest hover:border-white transition-colors"
-          >
-            이전
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={handleNext}
-          disabled={!canNext}
-          className="border border-white/40 rounded px-8 py-2 tracking-widest hover:border-white transition-colors disabled:opacity-40 disabled:hover:border-white/40"
-        >
-          다음
+      {/* 성별 — 선택 시 흰색 */}
+      <div className="absolute left-[132px] top-[588px] w-[551px] flex items-center font-pixel text-[30px] text-white">
+        <span className="w-[120px] shrink-0">성별</span>
+        <span className="shrink-0 mr-4">:</span>
+        <button type="button" onClick={() => setGender("남")} className={gender === "남" ? "text-white" : "text-white/40 hover:text-white/70"}>
+          ( 남 )
+        </button>
+        <button type="button" onClick={() => setGender("여")} className={"ml-8 " + (gender === "여" ? "text-white" : "text-white/40 hover:text-white/70")}>
+          ( 여 )
         </button>
       </div>
+
+      {/* 나이 */}
+      <div className="absolute left-[132px] top-[685px] w-[551px] flex items-center font-pixel text-[30px] text-white">
+        <span className="w-[120px] shrink-0">나이</span>
+        <span className="shrink-0 mr-4">:</span>
+        <input
+          className={inputCls}
+          value={age}
+          onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ""))}
+          placeholder="( 입력 )"
+          inputMode="numeric"
+          maxLength={3}
+        />
+      </div>
+
+      {/* 연락처 (Y782 추정 — 다음 배치에서 확정) */}
+      <div className="absolute left-[132px] top-[782px] w-[551px] flex items-center font-pixel text-[30px] text-white">
+        <span className="w-[120px] shrink-0">연락처</span>
+        <span className="shrink-0 mr-4">:</span>
+        <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="( 입력 )" inputMode="tel" maxLength={20} />
+      </div>
+
+      {/* 동의 체크 (위치 근사) */}
+      <div className="absolute left-[132px] top-[900px] flex flex-col gap-3 font-myeongjo text-[16px]">
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input type="checkbox" checked={agreeRequired} onChange={(e) => setAgreeRequired(e.target.checked)} className="w-4 h-4 accent-red-600" />
+          <span>
+            <span className="font-bold">개인정보처리방침</span> 및 <span className="font-bold">이용약관</span>에 동의합니다.
+          </span>
+        </label>
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input type="checkbox" checked={agreeMarketing} onChange={(e) => setAgreeMarketing(e.target.checked)} className="w-4 h-4 accent-red-600" />
+          <span>마케팅 정보 수신에 동의합니다.</span>
+        </label>
+      </div>
+
+      {/* 약관 박스 (우, 위치 근사 — 다음 배치에서 확정) */}
+      <div className="absolute left-[685px] top-[280px] w-[745px] h-[455px] border border-white/25 overflow-y-auto px-6 py-4">
+        <pre className="whitespace-pre-wrap break-words font-myeongjo text-[16px] leading-relaxed text-white/45">
+{PRIVACY_POLICY}
+        </pre>
+      </div>
+
+      {/* 다음 (위치 근사) */}
+      <button
+        type="button"
+        onClick={handleNext}
+        disabled={!canNext}
+        className="absolute left-[1250px] top-[950px] font-pixel text-[30px] text-white hover:text-red-500 disabled:opacity-40 disabled:hover:text-white transition-colors"
+      >
+        ( 다음 )
+      </button>
     </div>
   );
 }
