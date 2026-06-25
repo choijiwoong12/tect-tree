@@ -20,8 +20,7 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
   const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub'>(null)
 
   return (
-    <div className="relative w-full h-screen athena-grid-bg overflow-hidden">
-      <div className="athena-noise pointer-events-none absolute inset-0 z-0" />
+    <div className="relative w-full h-screen bg-black overflow-hidden">
 
       <TopBar
         rp={user?.rp_balance ?? 0}

@@ -34,7 +34,15 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
         <div className="text-sm mb-3 tracking-widest">RP</div>
 
         <div className="flex">
-          {/* 좌측 단독 화살표 — 상품 선택 시 고정 위치에 1개만, 클릭 시 결제로 이동 */}
+          <div className="flex-1 text-base">
+            {RP_PACKAGES.map((p) =>
+              row(`rp-${p.rp}`, `${krw(p.rp)} RP${p.bonus ? `  +  ${krw(p.bonus)}  BONUS` : ""}`, p.price, false)
+            )}
+            <div className="h-5" />
+            {row("subscription", "MONTHLY SUBSCRIPTION PLAN", SUBSCRIPTION_PRICE, false)}
+          </div>
+
+          {/* 우측 단독 화살표 — 상품 선택 시 고정 위치에 1개만, 클릭 시 결제로 이동 */}
           <div className="w-14 shrink-0 flex items-center justify-center">
             {selected && (
               <button
@@ -47,14 +55,6 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
                 {"( > )"}
               </button>
             )}
-          </div>
-
-          <div className="flex-1 text-base">
-            {RP_PACKAGES.map((p) =>
-              row(`rp-${p.rp}`, `${krw(p.rp)} RP${p.bonus ? `  +  ${krw(p.bonus)}  BONUS` : ""}`, p.price, false)
-            )}
-            <div className="h-5" />
-            {row("subscription", "MONTHLY SUBSCRIPTION PLAN", SUBSCRIPTION_PRICE, true)}
           </div>
         </div>
 

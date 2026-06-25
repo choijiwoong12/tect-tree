@@ -28,8 +28,8 @@ export function InfoPanel({
   const onSubscriptionClick = subscribed ? onOpenSubscriptionManage : onOpenShop;
 
   return (
-    <div className="absolute bottom-6 left-6 z-40 font-pixel text-white text-xs leading-relaxed max-w-sm pointer-events-auto">
-      <div className="border border-white/25 bg-black/40 rounded px-5 py-4">
+    <div className="absolute bottom-6 left-6 z-40 font-pixel text-white text-sm leading-tight max-w-sm pointer-events-auto">
+      <div className="bg-black rounded px-6 py-4">
         {user ? (
           <MemberInfo
             user={user}
@@ -46,17 +46,17 @@ export function InfoPanel({
 
 function BusinessInfo() {
   return (
-    <div>
-      <div className="text-white/45 tracking-widest mb-2">사업자 정보</div>
+    <div className="text-white/45">
+      <div className="tracking-widest mb-2">사업자 정보</div>
       <div>{BUSINESS_INFO.name}</div>
       <div>대표 {BUSINESS_INFO.ceo}</div>
       <div>사업자등록번호 {BUSINESS_INFO.bizNo}</div>
       <div>통신판매업신고 {BUSINESS_INFO.mailOrderNo}</div>
-      <div className="text-white/70">{BUSINESS_INFO.address}</div>
-      <div className="text-white/70">
+      <div>{BUSINESS_INFO.address}</div>
+      <div>
         {BUSINESS_INFO.email} · {BUSINESS_INFO.phone}
       </div>
-      <div className="mt-2 text-red-500">( 이용약관 )&nbsp;&nbsp;( 개인정보처리방침 )</div>
+      <div className="mt-2">( 이용약관 )&nbsp;&nbsp;( 개인정보처리방침 )</div>
     </div>
   );
 }
@@ -73,20 +73,45 @@ function MemberInfo({
   // TODO: 콜사인/등급/직전노드/진행률/구독상태는 users 스키마 확장 + 노드 연동 후 실제 값으로.
   const callSign = user.nickname || "YOU";
   return (
-    <div>
-      <div className="text-red-500">[ {callSign} ]</div>
-      <div className="mt-2">CLEARANCE : LEVEL 1</div>
-      <div>LAST NODE : -</div>
-      <div>PROGRESS : 0 %</div>
-      <div>RP : {(user.rp_balance ?? 0).toLocaleString()}</div>
-      <button onClick={onSubscriptionClick} className="block text-left hover:text-white/70 transition-colors">
+    <div className="text-white">
+      <div className="mb-4">[ {callSign} ]</div>
+      
+      <div className="flex">
+        <span className="w-28 shrink-0">CLEARANCE</span>
+        <span>: LEVEL 1</span>
+      </div>
+      <div className="flex">
+        <span className="w-28 shrink-0">LAST NOD</span>
+        <span>: -</span>
+      </div>
+      <div className="flex">
+        <span className="w-28 shrink-0"></span>
+        <span>: </span>
+      </div>
+      <div className="flex mb-4">
+        <span className="w-28 shrink-0">PROGRESS</span>
+        <span>: 0.00 %</span>
+      </div>
+
+      <div className="flex mb-1">
+        <span className="w-28 shrink-0">RP</span>
+        <span>: {(user.rp_balance ?? 0).toLocaleString()}</span>
+      </div>
+      <button onClick={onSubscriptionClick} className="block text-left hover:text-white/70 transition-colors mb-5">
         MONTHLY SUBSCRIPTION OFF
       </button>
-      <div className="mt-2 flex gap-3 text-red-500 flex-wrap">
-        <button onClick={onOpenCustomerService} className="hover:text-red-400 transition-colors">( CUSTOMER SERVICE )</button>
+
+      <div className="flex flex-col gap-1">
+        <button onClick={onOpenCustomerService} className="text-left hover:text-white/70 transition-colors">
+          ( CUSTOMER SERVICE )
+        </button>
         {/* TODO: NOTICE 모달 */}
-        <button className="hover:text-red-400 transition-colors">( NOTICE )</button>
-        <Link href="/business" className="hover:text-red-400 transition-colors">( 사업자 정보 )</Link>
+        <button className="text-left hover:text-white/70 transition-colors">
+          ( N O T I C E )
+        </button>
+        <Link href="/business" className="text-white text-left hover:text-white/70 transition-colors">
+          ( 사업자 정보 )
+        </Link>
       </div>
     </div>
   );

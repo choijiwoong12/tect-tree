@@ -146,12 +146,6 @@ export function TreeCanvas({ isLoggedIn, onLoginClick, onFocusChange, onCenterCl
         colorMode="dark"
         style={{ background: 'transparent' }}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={11}
-          size={1.1}
-          color="rgba(255,255,255,0.18)"
-        />
       </ReactFlow>
 
       {selectedNode && selectedNode.data.status === 'unlockable' && (

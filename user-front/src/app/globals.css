@@ -1,28 +1,23 @@
 @import "tailwindcss";
 
-/* Korean pixel font — VT323 covers Latin only, so Hangul falls back to this
-   to keep the site's pixel identity consistent across titles and node labels. */
-@font-face {
-  font-family: "DungGeunMo";
-  src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-10@1.0/DungGeunMo.woff")
-    format("woff");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 @theme {
   --color-bg: #000000;
   --color-fg: #e8e8ee;
   --color-accent: #d10000;
   --color-accent-soft: #6b0000;
   --font-sans: var(--font-inter), system-ui, sans-serif;
-  --font-pixel: var(--font-vt323), "DungGeunMo", monospace;
+  --font-pixel: var(--font-sam3kr), monospace;
+  --font-myeongjo: var(--font-nanum), serif;
 }
 
+/* 픽셀 UI 폰트 = Sam3KRFont(로컬). Figma 자간 0% 반영. */
 .font-pixel {
-  font-family: var(--font-vt323), "DungGeunMo", monospace;
-  letter-spacing: 0.05em;
+  font-family: var(--font-sam3kr), monospace;
+  letter-spacing: 0;
+}
+
+.font-myeongjo {
+  font-family: var(--font-nanum), serif;
 }
 
 .athena-grid-bg {
