@@ -50,7 +50,7 @@ export function CallSignWizard({ onComplete, onBack }: CallSignWizardProps) {
   let descBody: string | null = null;
   if (stage === 1 && jobIndex !== null) {
     const g = JOB_GROUPS[jobIndex];
-    descTitle = `[ ${g.ko} / ${g.en} ]`;
+    descTitle = `[ ${g.ko.replace("/", " / ")} ${g.en} ]`;
     descBody = g.desc;
   } else if (stage === 2 && level !== null) {
     const l = EXPERIENCE_LEVELS[level - 1];
@@ -107,16 +107,28 @@ export function CallSignWizard({ onComplete, onBack }: CallSignWizardProps) {
         </div>
       )}
 
-      {/* 직업군/수준/성취도 선택지 — TODO: 다음 배치에서 피그마 값으로 위치/폰트 픽셀 매칭(임시 배치) */}
-      {stage > 0 && (
+      {/* 직업군 — 알파벳과 동일 규격(X148 Y547 W700, Sam3KRFont 55), 7열×3행 양끝정렬 */}
+      {stage === 1 && (
+        <div className="absolute left-[148px] top-[547px] w-[700px] font-pixel text-[55px] leading-none">
+          {[0, 7, 14].map((start) => (
+            <div key={start} className={`flex justify-between ${start > 0 ? "mt-[37px]" : ""}`}>
+              {JOB_GROUPS.slice(start, start + 7).map((g, i) => {
+                const idx = start + i;
+                return (
+                  <span key={idx} onClick={() => setJobIndex(idx)} className={optClass(jobIndex === idx)}>
+                    {g.code}
+                  </span>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 수준/성취도 선택지 — TODO: 다음 배치에서 피그마 값으로 위치/폰트 픽셀 매칭(임시 배치) */}
+      {(stage === 2 || stage === 3) && (
         <div className="absolute left-[148px] top-[547px] w-[700px]">
           <div className="flex flex-wrap gap-x-7 gap-y-6 font-pixel text-[40px] leading-none">
-            {stage === 1 &&
-              JOB_GROUPS.map((g, i) => (
-                <span key={i} onClick={() => setJobIndex(i)} className={optClass(jobIndex === i)}>
-                  {g.code}
-                </span>
-              ))}
             {stage === 2 &&
               EXPERIENCE_LEVELS.map((l) => (
                 <span key={l.level} onClick={() => setLevel(l.level)} className={optClass(level === l.level)}>
@@ -133,13 +145,17 @@ export function CallSignWizard({ onComplete, onBack }: CallSignWizardProps) {
         </div>
       )}
 
-      {/* 우측 설명 — TODO: 다음 배치에서 피그마 값으로 위치/폰트 매칭(임시 배치) */}
+      {/* 우측 설명 제목 — 브레드크럼과 같은 줄(Y428), 우측 정렬 */}
       {descTitle && (
-        <div className="absolute left-[971px] top-[428px] w-[841px] font-myeongjo text-[20px] text-white/80">
-          <div className="mb-4 text-right text-white">{descTitle}</div>
-          {descBody && (
-            <div className="max-h-[420px] overflow-y-auto whitespace-pre-line text-right leading-relaxed">{descBody}</div>
-          )}
+        <div className="absolute left-[971px] top-[428px] w-[841px] text-right font-myeongjo text-[20px] text-white">
+          {descTitle}
+        </div>
+      )}
+
+      {/* 우측 설명 본문 — 선택지(알파벳/직업군) 첫 줄과 같은 Y547에서 시작, 우측 정렬, 행간 넉넉히(조정 가능) */}
+      {descBody && (
+        <div className="absolute left-[971px] top-[547px] w-[841px] max-h-[380px] overflow-y-auto whitespace-pre-line text-right font-myeongjo text-[20px] leading-loose text-white/90">
+          {descBody}
         </div>
       )}
 
