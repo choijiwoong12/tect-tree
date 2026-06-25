@@ -15,8 +15,10 @@ interface CallSignWizardProps {
   onBack?: () => void;
 }
 
+// 프레임: 콜사인 부여(CALL SIGN ASSIGNMENT) — 1920 절대좌표(DesignFrame이 화면에 맞춰 축소).
+// 4단계: 0 알파벳 · 1 직업군 · 2 수준 · 3 성취도
 export function CallSignWizard({ onComplete, onBack }: CallSignWizardProps) {
-  const [stage, setStage] = useState(0); // 0 알파벳 · 1 직업군 · 2 수준 · 3 성취도
+  const [stage, setStage] = useState(0);
   const [alphabet, setAlphabet] = useState<string | null>(null);
   const [jobIndex, setJobIndex] = useState<number | null>(null);
   const [level, setLevel] = useState<number | null>(null);
@@ -43,7 +45,7 @@ export function CallSignWizard({ onComplete, onBack }: CallSignWizardProps) {
     onComplete(buildCallSign(alphabet as string, job.code, level as number, achievement as number));
   }
 
-  // 우측 설명
+  // 우측 설명 (직업군/수준/성취도 선택 시)
   let descTitle: string | null = null;
   let descBody: string | null = null;
   if (stage === 1 && jobIndex !== null) {
@@ -60,118 +62,99 @@ export function CallSignWizard({ onComplete, onBack }: CallSignWizardProps) {
     descBody = a.desc;
   }
 
-  const optionBase =
-    "cursor-pointer font-pixel transition-colors select-none hover:text-white";
+  // 선택지 스타일: 선택 시 빨강, 그 외 흰색
+  const optClass = (active: boolean) =>
+    `cursor-pointer select-none transition-colors ${active ? "text-[#FE0000]" : "text-white hover:text-white/60"}`;
 
   return (
-    <div className="relative w-full h-full flex flex-col text-white px-10 md:px-16 py-12">
-      <h1 className="font-pixel text-3xl md:text-5xl leading-tight tracking-wider">
+    <div className="relative w-full min-h-[1080px] text-white select-none">
+      {/* 타이틀 */}
+      <h1 className="absolute left-[132px] top-[158px] font-pixel text-[64px] leading-none whitespace-nowrap">
         CALL SIGN
         <br />
         ASSIGNMENT
       </h1>
 
-      {/* breadcrumb */}
-      <div className="mt-10 font-pixel text-sm md:text-base tracking-wide text-white/70">
+      {/* 브레드크럼 — X132 Y428, NanumMyeongjo 20, 현재 단계 빨강 */}
+      <div className="absolute left-[132px] top-[428px] font-myeongjo text-[20px] whitespace-nowrap">
         [{" "}
         {CALLSIGN_STEPS.map((label, i) => (
           <span key={i}>
-            <span className={i === stage ? "text-red-600" : "text-white/70"}>{label}</span>
+            <span className={i === stage ? "text-[#FE0000]" : "text-white"}>{label}</span>
             {i < CALLSIGN_STEPS.length - 1 ? " / " : ""}
           </span>
         ))}{" "}
         ]
       </div>
 
-      <div className="mt-10 flex-1 grid grid-cols-1 md:grid-cols-2 gap-10">
-        {/* 좌: 선택지 */}
-        <div className="font-pixel">
-          {stage === 0 && (
-            <div className="flex flex-wrap gap-x-6 gap-y-5 text-3xl md:text-4xl">
-              {ALPHABET.map((letter) => (
-                <span
-                  key={letter}
-                  onClick={() => setAlphabet(letter)}
-                  className={`${optionBase} ${alphabet === letter ? "text-red-600" : "text-white/85"}`}
-                >
-                  {letter}
-                </span>
-              ))}
-            </div>
-          )}
+      {/* 알파벳 — X148 Y547 W700, Sam3KRFont 55, 2행(13열) 양끝정렬 */}
+      {stage === 0 && (
+        <div className="absolute left-[148px] top-[547px] w-[700px] font-pixel text-[55px] leading-none">
+          <div className="flex justify-between">
+            {ALPHABET.slice(0, 13).map((letter) => (
+              <span key={letter} onClick={() => setAlphabet(letter)} className={optClass(alphabet === letter)}>
+                {letter}
+              </span>
+            ))}
+          </div>
+          <div className="flex justify-between mt-[37px]">
+            {ALPHABET.slice(13).map((letter) => (
+              <span key={letter} onClick={() => setAlphabet(letter)} className={optClass(alphabet === letter)}>
+                {letter}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
-          {stage === 1 && (
-            <div className="flex flex-wrap gap-x-6 gap-y-5 text-2xl md:text-3xl">
-              {JOB_GROUPS.map((g, i) => (
-                <span
-                  key={i}
-                  onClick={() => setJobIndex(i)}
-                  className={`${optionBase} ${jobIndex === i ? "text-red-600" : "text-white/85"}`}
-                >
+      {/* 직업군/수준/성취도 선택지 — TODO: 다음 배치에서 피그마 값으로 위치/폰트 픽셀 매칭(임시 배치) */}
+      {stage > 0 && (
+        <div className="absolute left-[148px] top-[547px] w-[700px]">
+          <div className="flex flex-wrap gap-x-7 gap-y-6 font-pixel text-[40px] leading-none">
+            {stage === 1 &&
+              JOB_GROUPS.map((g, i) => (
+                <span key={i} onClick={() => setJobIndex(i)} className={optClass(jobIndex === i)}>
                   {g.code}
                 </span>
               ))}
-            </div>
-          )}
-
-          {stage === 2 && (
-            <div className="flex flex-wrap gap-x-7 gap-y-5 text-3xl md:text-4xl">
-              {EXPERIENCE_LEVELS.map((l) => (
-                <span
-                  key={l.level}
-                  onClick={() => setLevel(l.level)}
-                  className={`${optionBase} ${level === l.level ? "text-red-600" : "text-white/85"}`}
-                >
+            {stage === 2 &&
+              EXPERIENCE_LEVELS.map((l) => (
+                <span key={l.level} onClick={() => setLevel(l.level)} className={optClass(level === l.level)}>
                   {l.level}
                 </span>
               ))}
-            </div>
-          )}
-
-          {stage === 3 && (
-            <div className="flex flex-wrap gap-x-7 gap-y-5 text-3xl md:text-4xl">
-              {ACHIEVEMENT_LEVELS.map((a) => (
-                <span
-                  key={a.level}
-                  onClick={() => setAchievement(a.level)}
-                  className={`${optionBase} ${achievement === a.level ? "text-red-600" : "text-white/85"}`}
-                >
+            {stage === 3 &&
+              ACHIEVEMENT_LEVELS.map((a) => (
+                <span key={a.level} onClick={() => setAchievement(a.level)} className={optClass(achievement === a.level)}>
                   {a.level}
                 </span>
               ))}
-            </div>
-          )}
+          </div>
         </div>
+      )}
 
-        {/* 우: 설명 (고정 폰트 + 스크롤, 자동축소 없음) */}
-        <div className="font-pixel text-sm md:text-base leading-relaxed text-white/80">
-          {descTitle && (
-            <div className="text-right text-white mb-4">{descTitle}</div>
-          )}
+      {/* 우측 설명 — TODO: 다음 배치에서 피그마 값으로 위치/폰트 매칭(임시 배치) */}
+      {descTitle && (
+        <div className="absolute left-[971px] top-[428px] w-[841px] font-myeongjo text-[20px] text-white/80">
+          <div className="mb-4 text-right text-white">{descTitle}</div>
           {descBody && (
-            <div className="max-h-[40vh] overflow-y-auto whitespace-pre-line text-right pr-1">
-              {descBody}
-            </div>
+            <div className="max-h-[420px] overflow-y-auto whitespace-pre-line text-right leading-relaxed">{descBody}</div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* 하단 버튼 */}
-      <div className="mt-8 flex items-center justify-center gap-8 font-pixel text-xl md:text-2xl">
-        <button
-          type="button"
-          onClick={handlePrev}
-          className="border border-white/40 rounded px-8 py-2 tracking-widest hover:border-white transition-colors"
-        >
-          이전
+      {/* 이전/다음 — 그룹 X1311 Y960 W519 H52, 간격 98, Sam3KRFont 44 자간 13%, 흰색 */}
+      <div className="absolute left-[1311px] top-[960px] flex items-center gap-[98px] font-pixel text-[44px] tracking-[0.13em] leading-none">
+        <button type="button" onClick={handlePrev} className="text-white transition-colors hover:text-white/60">
+          ( 이전 )
         </button>
         <button
           type="button"
           onClick={handleNext}
           disabled={!selectedThisStage}
-          className="border border-white/40 rounded px-8 py-2 tracking-widest hover:border-white transition-colors disabled:opacity-40 disabled:hover:border-white/40"
+          className="text-white transition-colors hover:text-white/60 disabled:text-white/25 disabled:hover:text-white/25"
         >
-          {stage < 3 ? "다음" : "완료"}
+          {stage < 3 ? "( 다음 )" : "( 완료 )"}
         </button>
       </div>
     </div>
