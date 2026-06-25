@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { DesignOverlay } from "@/components/common/DesignOverlay";
 import { RP_PACKAGES, SUBSCRIPTION_PRICE, SUBSCRIPTION_GUIDE, RP_GUIDE } from "@/content/shop";
 
 // 프레임: 메인화면 (SHOP 모달) — 트리 위 라이트 박스(딤 없음). 가로중앙(박스중심 ≈ X960) 상단 Y90.
@@ -38,9 +39,10 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
         : "";
 
   return (
-    <div className="absolute inset-0 z-[60]" onClick={onClose}>
+    <DesignOverlay onClose={onClose}>
+      {/* 박스 — 디자인 좌표 X583 Y90 W755 H550 (1920 프레임 기준) */}
       <div
-        className="absolute left-1/2 top-[90px] h-[550px] w-[755px] -translate-x-1/2 bg-[#EAEAEA] text-black"
+        className="absolute left-[583px] top-[90px] h-[550px] w-[755px] bg-[#EAEAEA] text-black"
         onClick={(e) => e.stopPropagation()}
       >
         {/* SHOP — 박스기준 (52,50) = X634.94 Y140, Sam48, 밑줄 */}
@@ -105,7 +107,7 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
           </button>
         )}
       </div>
-    </div>
+    </DesignOverlay>
   );
 }
 
