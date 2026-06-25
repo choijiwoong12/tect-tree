@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, VT323 } from "next/font/google";
+import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Header } from "@/components/common/Header";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const vt323 = VT323({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-vt323",
+// 로컬 폰트(Google 로드 지양) — public/fonts
+const sam3kr = localFont({
+  src: "../../public/fonts/Sam3KRFont.ttf",
+  variable: "--font-sam3kr",
+  display: "swap",
+});
+const nanum = localFont({
+  src: "../../public/fonts/NanumMyeongjo.ttf",
+  variable: "--font-nanum",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -22,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko" className={`${inter.variable} ${vt323.variable}`}>
+    <html lang="ko" className={`${inter.variable} ${sam3kr.variable} ${nanum.variable}`}>
       <body className="font-sans">
         <AuthProvider>{children}</AuthProvider>
       </body>

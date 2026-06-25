@@ -57,27 +57,25 @@ export function DocumentViewer({ label, onClose }: DocumentViewerProps) {
 
   return createPortal(
     <div className={`fixed inset-0 z-[100] flex flex-col ${bg} ${text} transition-colors duration-300`}>
-      {/* 헤더: 빨간선 관통 로고(좌) + 다크/화이트 토글(우) */}
-      <div className="relative h-16 shrink-0">
-        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-red-600" />
-        <div className="absolute inset-0 flex items-center justify-between px-6">
-          <button
-            onClick={onClose}
-            title="메인으로 나가기"
-            className="font-pixel text-xl tracking-[0.15em] leading-none drop-shadow-md"
-          >
-            ATHENA DOCTRINE
-          </button>
-          <button
-            onClick={() => setIsLightMode((v) => !v)}
-            aria-label="테마 전환"
-            className={`relative inline-flex h-[22px] w-[42px] items-center rounded-full ${isLightMode ? "bg-neutral-400" : "bg-neutral-600"}`}
-          >
-            <span
-              className={`inline-block h-[14px] w-[14px] rounded-full bg-white transition-transform duration-200 ${isLightMode ? "translate-x-[24px]" : "translate-x-[4px]"}`}
-            />
-          </button>
-        </div>
+      {/* 헤더: 빨간선(#FE0000) 관통 로고(좌, Sam3KRFont 27) + 다크/화이트 토글(우) */}
+      <div className="relative h-[74px] shrink-0">
+        <div className="absolute left-0 right-0 top-[37px] h-px bg-[#FE0000]" />
+        <button
+          onClick={onClose}
+          title="메인으로 나가기"
+          className="absolute left-[28px] top-[37px] -translate-y-1/2 font-pixel text-[27px] leading-none whitespace-nowrap"
+        >
+          ATHENA DOCTRINE
+        </button>
+        <button
+          onClick={() => setIsLightMode((v) => !v)}
+          aria-label="테마 전환"
+          className={`absolute right-[21px] top-[37px] -translate-y-1/2 inline-flex h-[22px] w-[42px] items-center rounded-full ${isLightMode ? "bg-neutral-400" : "bg-neutral-600"}`}
+        >
+          <span
+            className={`inline-block h-[14px] w-[14px] rounded-full bg-white transition-transform duration-200 ${isLightMode ? "translate-x-[24px]" : "translate-x-[4px]"}`}
+          />
+        </button>
       </div>
 
       {/* 본문 + 우측 목차 레일 */}

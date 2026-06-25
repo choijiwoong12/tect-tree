@@ -1,25 +1,28 @@
 "use client";
 
-import Link from "next/link";
 import type { User } from "@/types/api";
 import { BUSINESS_INFO } from "@/content/business";
 
-// 좌하단 패널:
+// 좌하단 정보 패널 — 디자인: 회원정보 X46 Y729 W263 H292 (1920 프레임, DesignOverlay가 스케일).
 // - 로그인 전: 사업자 정보(표시의무).
 // - 로그인 후: 회원 정보. 중앙 노드 클릭으로 on/off 토글(showMember). off면 숨김.
-//   사업자 정보는 토글이 아니라 별도 페이지(/business)에서 열람.
+// 하단 버튼: ( CUSTOMER SERVICE ) / ( N O T I C E ) / [ LOG OUT ].
 export function InfoPanel({
   user,
   showMember,
   onOpenCustomerService,
+  onOpenNotice,
   onOpenShop,
   onOpenSubscriptionManage,
+  onLogout,
 }: {
   user: User | null;
   showMember: boolean;
   onOpenCustomerService?: () => void;
+  onOpenNotice?: () => void;
   onOpenShop?: () => void;
   onOpenSubscriptionManage?: () => void;
+  onLogout?: () => void;
 }) {
   // 로그인 + 토글 off → 패널 숨김
   if (user && !showMember) return null;
@@ -28,35 +31,34 @@ export function InfoPanel({
   const onSubscriptionClick = subscribed ? onOpenSubscriptionManage : onOpenShop;
 
   return (
-    <div className="absolute bottom-6 left-6 z-40 font-pixel text-white text-xs leading-relaxed max-w-sm pointer-events-auto">
-      <div className="border border-white/25 bg-black/40 rounded px-5 py-4">
-        {user ? (
-          <MemberInfo
-            user={user}
-            onOpenCustomerService={onOpenCustomerService}
-            onSubscriptionClick={onSubscriptionClick}
-          />
-        ) : (
-          <BusinessInfo />
-        )}
-      </div>
+    <div className="pointer-events-auto absolute left-[46px] top-[729px] w-[263px] z-40 font-pixel text-[16px] leading-normal text-white">
+      {user ? (
+        <MemberInfo
+          user={user}
+          onOpenCustomerService={onOpenCustomerService}
+          onOpenNotice={onOpenNotice}
+          onSubscriptionClick={onSubscriptionClick}
+          onLogout={onLogout}
+        />
+      ) : (
+        <BusinessInfo />
+      )}
     </div>
   );
 }
 
 function BusinessInfo() {
   return (
-    <div>
-      <div className="text-white/45 tracking-widest mb-2">사업자 정보</div>
+    <div className="text-[13px] leading-relaxed text-white/45">
       <div>{BUSINESS_INFO.name}</div>
       <div>대표 {BUSINESS_INFO.ceo}</div>
       <div>사업자등록번호 {BUSINESS_INFO.bizNo}</div>
       <div>통신판매업신고 {BUSINESS_INFO.mailOrderNo}</div>
-      <div className="text-white/70">{BUSINESS_INFO.address}</div>
-      <div className="text-white/70">
+      <div>{BUSINESS_INFO.address}</div>
+      <div>
         {BUSINESS_INFO.email} · {BUSINESS_INFO.phone}
       </div>
-      <div className="mt-2 text-red-500">( 이용약관 )&nbsp;&nbsp;( 개인정보처리방침 )</div>
+      <div className="mt-2">( 이용약관 )&nbsp;&nbsp;( 개인정보처리방침 )</div>
     </div>
   );
 }
@@ -64,30 +66,62 @@ function BusinessInfo() {
 function MemberInfo({
   user,
   onOpenCustomerService,
+  onOpenNotice,
   onSubscriptionClick,
+  onLogout,
 }: {
   user: User;
   onOpenCustomerService?: () => void;
+  onOpenNotice?: () => void;
   onSubscriptionClick?: () => void;
+  onLogout?: () => void;
 }) {
   // TODO: 콜사인/등급/직전노드/진행률/구독상태는 users 스키마 확장 + 노드 연동 후 실제 값으로.
   const callSign = user.nickname || "YOU";
   return (
-    <div>
-      <div className="text-red-500">[ {callSign} ]</div>
-      <div className="mt-2">CLEARANCE : LEVEL 1</div>
-      <div>LAST NODE : -</div>
-      <div>PROGRESS : 0 %</div>
-      <div>RP : {(user.rp_balance ?? 0).toLocaleString()}</div>
-      <button onClick={onSubscriptionClick} className="block text-left hover:text-white/70 transition-colors">
+    <div className="text-white">
+      {/* 콜사인 — TODO: 클릭 시 콜사인 수정 */}
+      <div className="mb-3">[ {callSign} ]</div>
+
+      <div className="flex">
+        <span className="w-[100px] shrink-0">CLEARANCE</span>
+        <span>: LEVEL 1</span>
+      </div>
+      {/* LAST NOD — TODO: 직전 열람 노드, 클릭 시 해당 노드로 이동 */}
+      <div className="flex">
+        <span className="w-[100px] shrink-0">LAST NOD</span>
+        <span>: -</span>
+      </div>
+      <div className="flex">
+        <span className="w-[100px] shrink-0" />
+        <span>:</span>
+      </div>
+      <div className="mb-3 flex">
+        <span className="w-[100px] shrink-0">PROGRESS</span>
+        <span>: 0.00 %</span>
+      </div>
+
+      <div className="flex">
+        <span className="w-[100px] shrink-0">RP</span>
+        <span>: {(user.rp_balance ?? 0).toLocaleString()}</span>
+      </div>
+      <button onClick={onSubscriptionClick} className="mb-3 block text-left transition-colors hover:text-white/70">
         MONTHLY SUBSCRIPTION OFF
       </button>
-      <div className="mt-2 flex gap-3 text-red-500 flex-wrap">
-        <button onClick={onOpenCustomerService} className="hover:text-red-400 transition-colors">( CUSTOMER SERVICE )</button>
-        {/* TODO: NOTICE 모달 */}
-        <button className="hover:text-red-400 transition-colors">( NOTICE )</button>
-        <Link href="/business" className="hover:text-red-400 transition-colors">( 사업자 정보 )</Link>
+
+      <div className="flex flex-col gap-1">
+        <button onClick={onOpenCustomerService} className="text-left transition-colors hover:text-white/70">
+          ( CUSTOMER SERVICE )
+        </button>
+        <button onClick={onOpenNotice} className="text-left transition-colors hover:text-white/70">
+          ( N O T I C E )
+        </button>
       </div>
+
+      {/* LOG OUT — 헤더에 있던 로그아웃을 회원정보 하단으로 이동 */}
+      <button onClick={onLogout} className="mt-3 block text-left transition-colors hover:text-red-500">
+        [ LOG OUT ]
+      </button>
     </div>
   );
 }

@@ -5,39 +5,53 @@ import { LogOut } from 'lucide-react'
 interface TopBarProps {
   rp?: number
   onRpClick?: () => void
+  onLogoClick?: () => void
   showLogout?: boolean
   onLogout?: () => void
 }
 
-export function TopBar({ rp, onRpClick, showLogout, onLogout }: TopBarProps) {
+// Figma(2차 보완) 메인 헤더 — 1920 기준 픽셀 값:
+// - 빨간 선: Y37, full width, #FE0000, 1px (글자 세로 중앙 관통)
+// - 로고 ATHENA DOCTRINE: Sam3KRFont 27px, #fff, left 28 / Y24(중앙 정렬)
+// - RP: 아이콘 21×20(흰 외곽선 1px)+내부 11×10 채움, gap 16, "0000" Sam3KRFont 27px, right margin 21
+export function TopBar({ rp, onRpClick, onLogoClick, showLogout, onLogout }: TopBarProps) {
   return (
     <>
-      {/* 헤더: 빨간선이 글자 세로 중앙 관통, 로고(좌) + RP 카운터(우) */}
-      <div className="absolute top-0 left-0 right-0 z-40 athena-grid-bg pointer-events-none">
-        <div className="athena-noise absolute inset-0 -z-10" />
-        <div className="relative h-16">
-          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-red-600" />
-          <div className="absolute inset-0 flex items-center justify-between px-6">
-            <h1 className="font-pixel text-2xl text-white tracking-[0.15em] leading-none drop-shadow-md">
-              ATHENA DOCTRINE
-            </h1>
-            <button
-              onClick={onRpClick}
-              className="pointer-events-auto flex items-center gap-2 font-pixel text-base text-white/90 hover:text-red-500 tracking-widest transition-colors"
-              aria-label="RP / 상점"
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden className="shrink-0">
-                <rect x="1" y="1" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                <rect x="4.5" y="4.5" width="5" height="5" fill="currentColor" />
-              </svg>
-              {String(rp ?? 0).padStart(4, '0')}
-            </button>
-          </div>
-        </div>
+      <div className="absolute top-0 left-0 right-0 z-40 h-[74px] pointer-events-none">
+        {/* 빨간 선 */}
+        <div className="absolute left-0 right-0 top-[37px] h-px bg-[#FE0000]" />
+
+        {/* 로고 — onLogoClick 있으면 클릭 시 메인으로 */}
+        {onLogoClick ? (
+          <button
+            onClick={onLogoClick}
+            aria-label="메인으로"
+            className="pointer-events-auto absolute left-[28px] top-[37px] -translate-y-1/2 font-pixel text-[27px] leading-none text-white whitespace-nowrap"
+          >
+            ATHENA DOCTRINE
+          </button>
+        ) : (
+          <h1 className="absolute left-[28px] top-[37px] -translate-y-1/2 font-pixel text-[27px] leading-none text-white whitespace-nowrap">
+            ATHENA DOCTRINE
+          </h1>
+        )}
+
+        {/* RP 카운터 */}
+        <button
+          onClick={onRpClick}
+          aria-label="RP / 상점"
+          className="pointer-events-auto absolute right-[21px] top-[37px] -translate-y-1/2 flex items-center gap-[16px] text-white hover:text-[#FE0000] transition-colors"
+        >
+          <svg width="21" height="20" viewBox="0 0 21 20" aria-hidden="true" className="shrink-0">
+            <rect x="0.5" y="0.5" width="20" height="19" fill="none" stroke="currentColor" strokeWidth="1" />
+            <rect x="5" y="5" width="11" height="10" fill="currentColor" />
+          </svg>
+          <span className="font-pixel text-[27px] leading-none">{String(rp ?? 0).padStart(4, '0')}</span>
+        </button>
       </div>
 
       {showLogout && (
-        <div className="absolute top-20 right-6 z-40 flex flex-col items-end gap-3">
+        <div className="pointer-events-auto absolute top-[84px] right-6 z-40 flex flex-col items-end gap-3">
           <button
             onClick={onLogout}
             aria-label="로그아웃"
