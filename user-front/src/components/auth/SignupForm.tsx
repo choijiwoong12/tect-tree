@@ -30,7 +30,7 @@ export function SignupForm({ onComplete }: SignupFormProps) {
   }
 
   const inputCls =
-    "flex-1 bg-transparent border-0 outline-none p-0 font-pixel text-[30px] text-white placeholder:text-white/30";
+    "flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-center font-pixel text-[30px] text-white placeholder:text-white/30";
 
   return (
     <div className="relative w-full min-h-[1080px] text-white select-none">
@@ -47,43 +47,49 @@ export function SignupForm({ onComplete }: SignupFormProps) {
       </p>
 
       {/* 이름 */}
-      <div className="absolute left-[132px] top-[491px] w-[551px] flex items-center font-pixel text-[30px] text-white">
+      <div className="absolute left-[132px] top-[491px] w-[551px] h-[46px] flex items-center font-pixel text-[30px] text-white">
         <span className="w-[120px] shrink-0">이름</span>
         <span className="shrink-0 mr-4">:</span>
-        <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="( 입력 )" maxLength={40} />
+        <span className="shrink-0">(</span>
+        <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="입력" maxLength={40} />
+        <span className="shrink-0">)</span>
       </div>
 
       {/* 성별 — 선택 시 흰색 */}
-      <div className="absolute left-[132px] top-[588px] w-[551px] flex items-center font-pixel text-[30px] text-white">
+      <div className="absolute left-[132px] top-[588px] w-[551px] h-[46px] flex items-center font-pixel text-[30px] text-white">
         <span className="w-[120px] shrink-0">성별</span>
         <span className="shrink-0 mr-4">:</span>
-        <button type="button" onClick={() => setGender("남")} className={gender === "남" ? "text-white" : "text-white/40 hover:text-white/70"}>
+        <button type="button" onClick={() => setGender("남")} className={"flex-1 text-center " + (gender === "남" ? "text-white" : "text-white/40 hover:text-white/70")}>
           ( 남 )
         </button>
-        <button type="button" onClick={() => setGender("여")} className={"ml-8 " + (gender === "여" ? "text-white" : "text-white/40 hover:text-white/70")}>
+        <button type="button" onClick={() => setGender("여")} className={"flex-1 text-center " + (gender === "여" ? "text-white" : "text-white/40 hover:text-white/70")}>
           ( 여 )
         </button>
       </div>
 
       {/* 나이 */}
-      <div className="absolute left-[132px] top-[685px] w-[551px] flex items-center font-pixel text-[30px] text-white">
+      <div className="absolute left-[132px] top-[685px] w-[551px] h-[46px] flex items-center font-pixel text-[30px] text-white">
         <span className="w-[120px] shrink-0">나이</span>
         <span className="shrink-0 mr-4">:</span>
+        <span className="shrink-0">(</span>
         <input
           className={inputCls}
           value={age}
           onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ""))}
-          placeholder="( 입력 )"
+          placeholder="입력"
           inputMode="numeric"
           maxLength={3}
         />
+        <span className="shrink-0">)</span>
       </div>
 
       {/* 연락처 (Y782 추정 — 다음 배치에서 확정) */}
-      <div className="absolute left-[132px] top-[782px] w-[551px] flex items-center font-pixel text-[30px] text-white">
+      <div className="absolute left-[132px] top-[782px] w-[551px] h-[46px] flex items-center font-pixel text-[30px] text-white">
         <span className="w-[120px] shrink-0">연락처</span>
         <span className="shrink-0 mr-4">:</span>
-        <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="( 입력 )" inputMode="tel" maxLength={20} />
+        <span className="shrink-0">(</span>
+        <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="입력" inputMode="tel" maxLength={20} />
+        <span className="shrink-0">)</span>
       </div>
 
       {/* 동의 체크 (위치 근사) */}
