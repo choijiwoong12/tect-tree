@@ -36,11 +36,10 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
 
       {/* 상시 UI(헤더·정보) — 모달과 동일한 1920 스케일 레이어. 클릭은 통과(내부 요소만 auto). */}
       <DesignOverlay z={40}>
+        {/* 헤더: 로고 + RP (로그아웃은 회원정보 하단으로 이동) */}
         <TopBar
           rp={user?.rp_balance ?? 0}
           onRpClick={() => setModal('shop')}
-          showLogout={!!user}
-          onLogout={logout}
         />
         <InfoPanel
           user={user}
@@ -48,6 +47,7 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
           onOpenCustomerService={() => setModal('cs')}
           onOpenShop={() => setModal('shop')}
           onOpenSubscriptionManage={() => setModal('sub')}
+          onLogout={logout}
         />
       </DesignOverlay>
 
