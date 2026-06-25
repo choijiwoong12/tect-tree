@@ -114,33 +114,33 @@ export function SignupForm({ onComplete }: SignupFormProps) {
         </button>
       </div>
 
-      {/* 동의 체크 (위치 근사) */}
-      <div className="absolute left-[132px] top-[900px] flex flex-col gap-3 font-myeongjo text-[16px]">
-        <label className="flex items-center gap-3 cursor-pointer select-none">
-          <input type="checkbox" checked={agreeRequired} onChange={(e) => setAgreeRequired(e.target.checked)} className="w-4 h-4 accent-red-600" />
+      {/* 동의 체크 — 체크박스 25×25 흰 외곽선, 체크 시 흰색 채움(체크표시 없음). 첫 체크박스 @142,942 */}
+      <div className="absolute left-[142px] top-[935px] flex flex-col gap-4 font-myeongjo text-[22px]">
+        <button type="button" onClick={() => setAgreeRequired((v) => !v)} className="flex items-center gap-4 text-left select-none" aria-pressed={agreeRequired}>
+          <span className={`w-[25px] h-[25px] shrink-0 border border-white ${agreeRequired ? "bg-white" : "bg-transparent"}`} />
           <span>
             <span className="font-bold">개인정보처리방침</span> 및 <span className="font-bold">이용약관</span>에 동의합니다.
           </span>
-        </label>
-        <label className="flex items-center gap-3 cursor-pointer select-none">
-          <input type="checkbox" checked={agreeMarketing} onChange={(e) => setAgreeMarketing(e.target.checked)} className="w-4 h-4 accent-red-600" />
+        </button>
+        <button type="button" onClick={() => setAgreeMarketing((v) => !v)} className="flex items-center gap-4 text-left select-none" aria-pressed={agreeMarketing}>
+          <span className={`w-[25px] h-[25px] shrink-0 border border-white ${agreeMarketing ? "bg-white" : "bg-transparent"}`} />
           <span>마케팅 정보 수신에 동의합니다.</span>
-        </label>
+        </button>
       </div>
 
-      {/* 약관 박스 (우, 위치 근사 — 다음 배치에서 확정) */}
-      <div className="absolute left-[685px] top-[280px] w-[745px] h-[455px] border border-white/25 overflow-y-auto px-6 py-4">
-        <pre className="whitespace-pre-wrap break-words font-myeongjo text-[16px] leading-relaxed text-white/45">
+      {/* 약관 박스 — X971 Y222 W841 H491, NanumMyeongjo 25, 우측 정렬, 테두리 없음(스크롤) */}
+      <div className="absolute left-[971px] top-[222px] w-[841px] h-[491px] overflow-y-auto">
+        <pre className="whitespace-pre-wrap break-words text-right font-myeongjo text-[25px] leading-relaxed text-white/50">
 {PRIVACY_POLICY}
         </pre>
       </div>
 
-      {/* 다음 (위치 근사) */}
+      {/* 다음 — X1621 Y960, Sam3KRFont 44, 자간 13%. 회색 기본 → hover 흰색 */}
       <button
         type="button"
         onClick={handleNext}
         disabled={!canNext}
-        className="absolute left-[1250px] top-[950px] font-pixel text-[30px] text-white hover:text-red-500 disabled:opacity-40 disabled:hover:text-white transition-colors"
+        className="absolute left-[1621px] top-[960px] font-pixel text-[44px] tracking-[0.13em] text-white/40 hover:text-white disabled:text-white/20 disabled:hover:text-white/20 transition-colors"
       >
         ( 다음 )
       </button>
