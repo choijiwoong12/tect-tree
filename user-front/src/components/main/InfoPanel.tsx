@@ -47,7 +47,6 @@ export function InfoPanel({
 function BusinessInfo() {
   return (
     <div className="text-white/45">
-      <div className="tracking-widest mb-2">사업자 정보</div>
       <div>{BUSINESS_INFO.name}</div>
       <div>대표 {BUSINESS_INFO.ceo}</div>
       <div>사업자등록번호 {BUSINESS_INFO.bizNo}</div>
