@@ -5,6 +5,7 @@ import { LogOut } from 'lucide-react'
 interface TopBarProps {
   rp?: number
   onRpClick?: () => void
+  onLogoClick?: () => void
   showLogout?: boolean
   onLogout?: () => void
 }
@@ -13,17 +14,27 @@ interface TopBarProps {
 // - 빨간 선: Y37, full width, #FE0000, 1px (글자 세로 중앙 관통)
 // - 로고 ATHENA DOCTRINE: Sam3KRFont 27px, #fff, left 28 / Y24(중앙 정렬)
 // - RP: 아이콘 21×20(흰 외곽선 1px)+내부 11×10 채움, gap 16, "0000" Sam3KRFont 27px, right margin 21
-export function TopBar({ rp, onRpClick, showLogout, onLogout }: TopBarProps) {
+export function TopBar({ rp, onRpClick, onLogoClick, showLogout, onLogout }: TopBarProps) {
   return (
     <>
       <div className="absolute top-0 left-0 right-0 z-40 h-[74px] pointer-events-none">
         {/* 빨간 선 */}
         <div className="absolute left-0 right-0 top-[37px] h-px bg-[#FE0000]" />
 
-        {/* 로고 */}
-        <h1 className="absolute left-[28px] top-[37px] -translate-y-1/2 font-pixel text-[27px] leading-none text-white whitespace-nowrap">
-          ATHENA DOCTRINE
-        </h1>
+        {/* 로고 — onLogoClick 있으면 클릭 시 메인으로 */}
+        {onLogoClick ? (
+          <button
+            onClick={onLogoClick}
+            aria-label="메인으로"
+            className="pointer-events-auto absolute left-[28px] top-[37px] -translate-y-1/2 font-pixel text-[27px] leading-none text-white whitespace-nowrap"
+          >
+            ATHENA DOCTRINE
+          </button>
+        ) : (
+          <h1 className="absolute left-[28px] top-[37px] -translate-y-1/2 font-pixel text-[27px] leading-none text-white whitespace-nowrap">
+            ATHENA DOCTRINE
+          </h1>
+        )}
 
         {/* RP 카운터 */}
         <button

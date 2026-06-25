@@ -10,6 +10,7 @@ import { InfoPanel } from '@/components/main/InfoPanel'
 import { ShopModal } from '@/components/main/ShopModal'
 import { CustomerServiceModal } from '@/components/main/CustomerServiceModal'
 import { SubscriptionModal } from '@/components/main/SubscriptionModal'
+import { NoticePage } from '@/components/main/NoticePage'
 
 interface TechTreeProps {
   onLoginClick: () => void;
@@ -18,7 +19,7 @@ interface TechTreeProps {
 export function TechTree({ onLoginClick }: TechTreeProps) {
   const { user, logout } = useAuth()
   const [showMember, setShowMember] = useState(true)
-  const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub'>(null)
+  const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub' | 'notice'>(null)
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -45,6 +46,7 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
           user={user}
           showMember={showMember}
           onOpenCustomerService={() => setModal('cs')}
+          onOpenNotice={() => setModal('notice')}
           onOpenShop={() => setModal('shop')}
           onOpenSubscriptionManage={() => setModal('sub')}
           onLogout={logout}
@@ -54,6 +56,7 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
       {modal === 'shop' && <ShopModal onClose={() => setModal(null)} />}
       {modal === 'cs' && <CustomerServiceModal onClose={() => setModal(null)} />}
       {modal === 'sub' && <SubscriptionModal onClose={() => setModal(null)} />}
+      {modal === 'notice' && <NoticePage rp={user?.rp_balance ?? 0} onClose={() => setModal(null)} />}
     </div>
   )
 }

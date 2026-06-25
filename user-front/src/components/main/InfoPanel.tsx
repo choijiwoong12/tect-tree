@@ -11,6 +11,7 @@ export function InfoPanel({
   user,
   showMember,
   onOpenCustomerService,
+  onOpenNotice,
   onOpenShop,
   onOpenSubscriptionManage,
   onLogout,
@@ -18,6 +19,7 @@ export function InfoPanel({
   user: User | null;
   showMember: boolean;
   onOpenCustomerService?: () => void;
+  onOpenNotice?: () => void;
   onOpenShop?: () => void;
   onOpenSubscriptionManage?: () => void;
   onLogout?: () => void;
@@ -34,6 +36,7 @@ export function InfoPanel({
         <MemberInfo
           user={user}
           onOpenCustomerService={onOpenCustomerService}
+          onOpenNotice={onOpenNotice}
           onSubscriptionClick={onSubscriptionClick}
           onLogout={onLogout}
         />
@@ -63,11 +66,13 @@ function BusinessInfo() {
 function MemberInfo({
   user,
   onOpenCustomerService,
+  onOpenNotice,
   onSubscriptionClick,
   onLogout,
 }: {
   user: User;
   onOpenCustomerService?: () => void;
+  onOpenNotice?: () => void;
   onSubscriptionClick?: () => void;
   onLogout?: () => void;
 }) {
@@ -108,8 +113,9 @@ function MemberInfo({
         <button onClick={onOpenCustomerService} className="text-left transition-colors hover:text-white/70">
           ( CUSTOMER SERVICE )
         </button>
-        {/* TODO: NOTICE 모달 */}
-        <button className="text-left transition-colors hover:text-white/70">( N O T I C E )</button>
+        <button onClick={onOpenNotice} className="text-left transition-colors hover:text-white/70">
+          ( N O T I C E )
+        </button>
       </div>
 
       {/* LOG OUT — 헤더에 있던 로그아웃을 회원정보 하단으로 이동 */}
