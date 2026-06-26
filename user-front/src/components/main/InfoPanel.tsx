@@ -109,13 +109,13 @@ function MemberInfo({
       </button>
 
       {/* 하단 버튼 — 디자인 정확값. NOTICE/LOG OUT은 자간으로 W216 채움 */}
-      <button onClick={onOpenCustomerService} className="absolute left-0 top-[212px] w-[216px] text-left transition-colors hover:text-white/70">
+      <button onClick={onOpenCustomerService} className="absolute left-0 top-[212px] whitespace-nowrap text-left transition-colors hover:text-white/70">
         ( CUSTOMER SERVICE )
       </button>
-      <button onClick={onOpenNotice} className="absolute left-0 top-[231px] w-[216px] text-left tracking-[0.56em] transition-colors hover:text-white/70">
+      <button onClick={onOpenNotice} className="absolute left-0 top-[231px] whitespace-nowrap text-left tracking-[0.56em] transition-colors hover:text-white/70">
         ( NOTICE )
       </button>
-      <button onClick={onLogout} className="absolute left-0 top-[271px] w-[216px] text-left tracking-[0.46em] transition-colors hover:text-red-500">
+      <button onClick={onLogout} className="absolute left-0 top-[271px] whitespace-nowrap text-left tracking-[0.46em] transition-colors hover:text-red-500">
         [ LOG OUT ]
       </button>
     </>
