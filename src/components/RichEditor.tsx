@@ -18,8 +18,6 @@ import {
   AlignCenter,
   AlignRight,
   Heading1,
-  Heading2,
-  Heading3,
   Highlighter,
   Undo,
   Redo,
@@ -215,23 +213,9 @@ export default function RichEditor({ content, onChange, placeholder }: RichEdito
           <ToolBtn
             active={editor.isActive("heading", { level: 1 })}
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            title="제목 1"
+            title="제목 (목차)"
           >
             <Heading1 size={13} />
-          </ToolBtn>
-          <ToolBtn
-            active={editor.isActive("heading", { level: 2 })}
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            title="제목 2"
-          >
-            <Heading2 size={13} />
-          </ToolBtn>
-          <ToolBtn
-            active={editor.isActive("heading", { level: 3 })}
-            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            title="제목 3"
-          >
-            <Heading3 size={13} />
           </ToolBtn>
         </ToolGroup>
 

@@ -13,13 +13,23 @@ import {
   FileText,
   MapPin,
   List,
-  Plus,
-  GripVertical,
 } from "lucide-react";
 import clsx from "clsx";
 import type { DocumentNode, IndexItem, NodeKind } from "@/lib/types";
 import { nodeKindLabel, nodeKindColor } from "@/lib/utils";
 import RichEditor from "./RichEditor";
+
+function extractH1s(html: string): IndexItem[] {
+  if (!html || typeof window === "undefined") return [];
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  return Array.from(div.querySelectorAll("h1"))
+    .map((el, i) => ({
+      id: `h1-${i}`,
+      title: el.textContent?.trim() ?? "",
+    }))
+    .filter((item) => item.title);
+}
 
 interface NodeDetailProps {
   node: DocumentNode | null;
@@ -71,10 +81,15 @@ export default function NodeDetail({
       setSelectedParentId(node.parent_id);
       setIsLocked(node.is_locked);
       setPrice(node.price !== null && node.price !== undefined ? String(node.price) : "");
-      setIndexItems(node.index_items ?? []);
+      setIndexItems(extractH1s(node.body_content ?? ""));
     }
     setConfirmDelete(false);
   }, [node, isNew, parentId]);
+
+  // Auto-sync index items whenever body content changes
+  useEffect(() => {
+    setIndexItems(extractH1s(bodyContent));
+  }, [bodyContent]);
 
   if (!node && !isNew) {
     return (
@@ -89,35 +104,6 @@ export default function NodeDetail({
 
   const parentNode = allNodes.find((n) => n.id === selectedParentId);
 
-  function addIndexItem() {
-    setIndexItems((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), title: "" },
-    ]);
-  }
-
-  function updateIndexItem(id: string, value: string) {
-    setIndexItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, title: value } : item))
-    );
-  }
-
-  function removeIndexItem(id: string) {
-    setIndexItems((prev) => prev.filter((item) => item.id !== id));
-  }
-
-  function moveIndexItem(id: string, dir: -1 | 1) {
-    setIndexItems((prev) => {
-      const idx = prev.findIndex((item) => item.id === id);
-      if (idx < 0) return prev;
-      const next = [...prev];
-      const swap = idx + dir;
-      if (swap < 0 || swap >= next.length) return prev;
-      [next[idx], next[swap]] = [next[swap], next[idx]];
-      return next;
-    });
-  }
-
   async function handleSave() {
     await onSave({
       title,
@@ -126,9 +112,7 @@ export default function NodeDetail({
       parent_id: selectedParentId,
       is_locked: isLocked,
       price: price.trim() === "" ? null : parseInt(price.replace(/,/g, ""), 10),
-      index_items: indexItems.filter((item) => item.title.trim()).length > 0
-        ? indexItems.filter((item) => item.title.trim())
-        : null,
+      index_items: indexItems.length > 0 ? indexItems : null,
     });
   }
 
@@ -336,60 +320,22 @@ export default function NodeDetail({
               </span>
             </div>
 
-            {indexItems.length > 0 && (
+            {indexItems.length > 0 ? (
               <ul className="space-y-1.5">
                 {indexItems.map((item, idx) => (
-                  <li key={item.id} className="flex items-center gap-2">
+                  <li key={item.id} className="flex items-center gap-2.5 py-1.5 px-3 bg-gray-50 rounded-lg border border-gray-100">
                     <span className="shrink-0 text-[11px] font-mono text-gray-300 w-4 text-right">
                       {idx + 1}
                     </span>
-                    <div className="flex flex-col gap-0.5 shrink-0">
-                      <button
-                        onClick={() => moveIndexItem(item.id, -1)}
-                        disabled={idx === 0}
-                        className="text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors leading-none"
-                      >
-                        <GripVertical size={10} className="rotate-90" />
-                      </button>
-                      <button
-                        onClick={() => moveIndexItem(item.id, 1)}
-                        disabled={idx === indexItems.length - 1}
-                        className="text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors leading-none"
-                      >
-                        <GripVertical size={10} className="-rotate-90" />
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      value={item.title}
-                      onChange={(e) => updateIndexItem(item.id, e.target.value)}
-                      placeholder="항목 제목을 입력하세요"
-                      className="input flex-1 text-sm"
-                    />
-                    <button
-                      onClick={() => removeIndexItem(item.id)}
-                      className="shrink-0 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    <span className="flex-1 text-sm text-gray-700 truncate">{item.title}</span>
                   </li>
                 ))}
               </ul>
-            )}
-
-            {indexItems.length === 0 && (
+            ) : (
               <p className="text-xs text-gray-400 italic py-1">
-                항목이 없습니다. 아래 버튼으로 목차를 추가하세요.
+                내용 에디터에서 H1 제목을 추가하면 자동으로 목차가 생성됩니다.
               </p>
             )}
-
-            <button
-              onClick={addIndexItem}
-              className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
-            >
-              <Plus size={12} />
-              항목 추가
-            </button>
           </div>
         )}
 
