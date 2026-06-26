@@ -10,6 +10,7 @@ import { BUSINESS_INFO } from "@/content/business";
 export function InfoPanel({
   user,
   showMember,
+  onEditCallsign,
   onOpenCustomerService,
   onOpenNotice,
   onOpenShop,
@@ -18,6 +19,7 @@ export function InfoPanel({
 }: {
   user: User | null;
   showMember: boolean;
+  onEditCallsign?: () => void;
   onOpenCustomerService?: () => void;
   onOpenNotice?: () => void;
   onOpenShop?: () => void;
@@ -35,6 +37,7 @@ export function InfoPanel({
       {user ? (
         <MemberInfo
           user={user}
+          onEditCallsign={onEditCallsign}
           onOpenCustomerService={onOpenCustomerService}
           onOpenNotice={onOpenNotice}
           onSubscriptionClick={onSubscriptionClick}
@@ -65,12 +68,14 @@ function BusinessInfo() {
 
 function MemberInfo({
   user,
+  onEditCallsign,
   onOpenCustomerService,
   onOpenNotice,
   onSubscriptionClick,
   onLogout,
 }: {
   user: User;
+  onEditCallsign?: () => void;
   onOpenCustomerService?: () => void;
   onOpenNotice?: () => void;
   onSubscriptionClick?: () => void;
@@ -84,8 +89,10 @@ function MemberInfo({
   // 상단 정보 Y는 패널 미제공 → 행피치 19 / 그룹간격 43으로 버튼과 정렬되게 추정.
   return (
     <>
-      {/* 콜사인-이름 — TODO: 클릭 시 콜사인 수정 */}
-      <div className="absolute left-0 top-[6px]">[ {display} ]</div>
+      {/* 콜사인-이름 — 클릭 시 콜사인 재설정(동의 화면 건너뛰고 콜사인 단계만, 기존 선택 빨강) */}
+      <button onClick={onEditCallsign} className="absolute left-0 top-[6px] text-left transition-colors hover:text-white/70">
+        [ {display} ]
+      </button>
 
       <div className="absolute left-0 top-[50px]">
         <span className="inline-block w-[112px]">CLEARANCE</span>: LEVEL 1

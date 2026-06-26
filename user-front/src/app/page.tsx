@@ -84,7 +84,7 @@ export default function RootPage() {
           className="absolute inset-0 z-10 transition-opacity duration-1000 ease-in-out"
           style={{ opacity: treeVisible ? 1 : 0 }}
         >
-          <TechTree onLoginClick={handleGoogleLogin} />
+          <TechTree onLoginClick={handleGoogleLogin} onEditCallsign={() => setStep('CALLSIGN')} />
         </div>
       )}
 
@@ -103,21 +103,16 @@ export default function RootPage() {
           <DesignFrame>
             {/* 콜사인 정하는 중에도 홈(로고) 클릭 시 메인으로 나갈 수 있음 */}
             <TopBar rp={0} onLogoClick={() => setStep('MAIN_TREE')} />
-            <CallSignWizard onComplete={handleCallsignComplete} onBack={() => setStep('MAIN_TREE')} />
+            {/* 재설정 시 기존 콜사인 미리 선택(빨강). 최초 가입 땐 user.callsign 없음 → 선택 없음 */}
+            <CallSignWizard
+              initialCallsign={user?.callsign}
+              onComplete={handleCallsignComplete}
+              onBack={() => setStep('MAIN_TREE')}
+            />
           </DesignFrame>
         </div>
       )}
 
-      {/* 개발용 임시 진입점: 미로그인 상태에서 회원가입/콜사인 UI 미리보기(저장은 안 됨). 프로덕션엔 숨김. */}
-      {step === 'MAIN_TREE' && process.env.NODE_ENV !== 'production' && (
-        <button
-          onClick={() => setStep('SIGNUP_MODAL')}
-          title="개발용: 회원가입/콜사인 미리보기"
-          className="fixed bottom-4 right-4 z-[90] font-pixel text-[11px] text-white/40 hover:text-white/80 border border-white/20 bg-black/60 rounded px-3 py-1.5 transition-colors"
-        >
-          ▶ 가입/콜사인 미리보기 (dev)
-        </button>
-      )}
     </main>
   )
 }
