@@ -13,16 +13,30 @@ import {
 interface CallSignWizardProps {
   onComplete: (callSign: string) => void;
   onBack?: () => void;
+  initialCallsign?: string; // 재설정 시 기존 콜사인 → 각 단계 선택값 미리 채움(빨강)
+}
+
+// 콜사인 문자열(알파벳1 + 직업코드2 + 수준1 + 성취도1, 예 "ZER99") → 단계별 선택값으로 역파싱.
+function parseCallsign(cs?: string) {
+  if (!cs || cs.length < 5) return null;
+  const alphabet = cs[0];
+  const jobCode = cs.slice(1, 3);
+  const level = Number(cs[3]);
+  const achievement = Number(cs[4]);
+  const jobIndex = JOB_GROUPS.findIndex((g) => g.code === jobCode);
+  if (!ALPHABET.includes(alphabet) || jobIndex < 0 || !level || !achievement) return null;
+  return { alphabet, jobIndex, level, achievement };
 }
 
 // 프레임: 콜사인 부여(CALL SIGN ASSIGNMENT) — 1920 절대좌표(DesignFrame이 화면에 맞춰 축소).
 // 4단계: 0 알파벳 · 1 직업군 · 2 수준 · 3 성취도
-export function CallSignWizard({ onComplete, onBack }: CallSignWizardProps) {
+export function CallSignWizard({ onComplete, onBack, initialCallsign }: CallSignWizardProps) {
+  const initial = parseCallsign(initialCallsign);
   const [stage, setStage] = useState(0);
-  const [alphabet, setAlphabet] = useState<string | null>(null);
-  const [jobIndex, setJobIndex] = useState<number | null>(null);
-  const [level, setLevel] = useState<number | null>(null);
-  const [achievement, setAchievement] = useState<number | null>(null);
+  const [alphabet, setAlphabet] = useState<string | null>(initial?.alphabet ?? null);
+  const [jobIndex, setJobIndex] = useState<number | null>(initial?.jobIndex ?? null);
+  const [level, setLevel] = useState<number | null>(initial?.level ?? null);
+  const [achievement, setAchievement] = useState<number | null>(initial?.achievement ?? null);
 
   const selectedThisStage =
     (stage === 0 && alphabet !== null) ||

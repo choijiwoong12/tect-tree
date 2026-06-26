@@ -14,9 +14,10 @@ import { NoticePage } from '@/components/main/NoticePage'
 
 interface TechTreeProps {
   onLoginClick: () => void;
+  onEditCallsign?: () => void;
 }
 
-export function TechTree({ onLoginClick }: TechTreeProps) {
+export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
   const { user, logout } = useAuth()
   const [showMember, setShowMember] = useState(true)
   const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub' | 'notice'>(null)
@@ -29,6 +30,7 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
         <TreeCanvas
           themeId="main-tree"
           isLoggedIn={!!user}
+          rootLabel={user ? [user.callsign, user.name].filter(Boolean).join('-') || user.nickname || 'YOU' : undefined}
           onLoginClick={onLoginClick}
           onCenterClick={() => setShowMember((v) => !v)}
           onOpenShop={() => setModal('shop')}
@@ -45,6 +47,7 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
         <InfoPanel
           user={user}
           showMember={showMember}
+          onEditCallsign={onEditCallsign}
           onOpenCustomerService={() => setModal('cs')}
           onOpenNotice={() => setModal('notice')}
           onOpenShop={() => setModal('shop')}
