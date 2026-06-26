@@ -32,18 +32,20 @@
   margin: 0 0 8px;
 }
 
-.ProseMirror h2 {
-  font-size: 18px;
+/* H1 = 목차 구분 제목 */
+.ProseMirror h1 {
+  font-size: 17px;
   font-weight: 700;
-  margin: 16px 0 8px;
   color: #111827;
+  margin: 28px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+  position: relative;
 }
 
-.ProseMirror h3 {
-  font-size: 15px;
-  font-weight: 600;
-  margin: 14px 0 6px;
-  color: #1f2937;
+/* 첫 번째 H1은 위 마진 줄이기 */
+.ProseMirror h1:first-child {
+  margin-top: 4px;
 }
 
 .ProseMirror ul,
