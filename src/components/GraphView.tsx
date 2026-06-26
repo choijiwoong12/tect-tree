@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useCallback, useLayoutEffect } from "react";
-import { ZoomIn, ZoomOut, Maximize2, Info } from "lucide-react";
+import { useRef, useState, useCallback, useLayoutEffect, useEffect } from "react";
+import { ZoomIn, ZoomOut, Maximize2, Info, Search, X } from "lucide-react";
 import clsx from "clsx";
 import type { DocumentNode } from "@/lib/types";
 
@@ -55,6 +55,9 @@ export default function GraphView({ nodes, onSelectNode }: Props) {
   const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -73,6 +76,23 @@ export default function GraphView({ nodes, onSelectNode }: Props) {
     setPan({ x: 0, y: 0 });
     setZoom(1);
   }
+
+  function centerOnNode(node: DocumentNode) {
+    const abs = absPositions.get(node.id);
+    if (!abs) return;
+    setPan({ x: -abs.x * zoom, y: -abs.y * zoom });
+    setSelectedId(node.id);
+  }
+
+  useEffect(() => {
+    if (showSearch) searchInputRef.current?.focus();
+  }, [showSearch]);
+
+  const searchResults = searchQuery.trim()
+    ? nodes.filter((n) =>
+        n.title.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -132,12 +152,74 @@ export default function GraphView({ nodes, onSelectNode }: Props) {
         <CtrlBtn onClick={resetView} title="초기화">
           <Maximize2 size={14} />
         </CtrlBtn>
+        <CtrlBtn onClick={() => { setShowSearch((v) => !v); setSearchQuery(""); }} title="검색">
+          <Search size={14} />
+        </CtrlBtn>
       </div>
 
       {/* Zoom indicator */}
       <div className="absolute top-4 left-4 z-10 text-[10px] text-gray-400 font-mono">
         {Math.round(zoom * 100)}%
       </div>
+
+      {/* Search panel */}
+      {showSearch && (
+        <div className="absolute top-4 right-16 z-20 w-64">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setShowSearch(false)}
+              placeholder="노드 제목 검색..."
+              className="w-full pl-8 pr-8 py-2 text-xs bg-white border border-gray-200 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={11} />
+              </button>
+            )}
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+              {searchResults.map((node) => (
+                <button
+                  key={node.id}
+                  onClick={() => {
+                    centerOnNode(node);
+                    setSearchQuery("");
+                    setShowSearch(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                >
+                  <span className={clsx(
+                    "shrink-0 w-1.5 h-1.5 rounded-full",
+                    node.node_kind === "category" ? "bg-violet-500"
+                    : node.node_kind === "file" ? "bg-emerald-500"
+                    : "bg-blue-500"
+                  )} />
+                  <span className="flex-1 text-xs text-gray-800 truncate">{node.title}</span>
+                  <span className="text-[10px] text-gray-400 font-mono shrink-0">
+                    ({Math.round(node.pos_x ?? 0)}, {Math.round(node.pos_y ?? 0)})
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {searchQuery.trim() && searchResults.length === 0 && (
+            <div className="mt-1 bg-white border border-gray-200 rounded-xl shadow-md px-3 py-2.5">
+              <p className="text-xs text-gray-400">검색 결과가 없습니다</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Empty state */}
       {allZero && nodes.length > 0 && (

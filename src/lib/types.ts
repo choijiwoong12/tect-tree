@@ -1,11 +1,17 @@
 export type NodeKind = "category" | "content" | "file";
 
+export interface IndexItem {
+  id: string;
+  title: string;
+}
+
 export interface DocumentNode {
   id: number;
   parent_id: number | null;
   title: string;
   node_kind: NodeKind;
   body_content: string | null;
+  index_items: IndexItem[] | null;
   file_name: string | null;
   file_path: string | null;
   is_locked: boolean;

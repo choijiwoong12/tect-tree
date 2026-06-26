@@ -5,8 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import Sidebar from "@/components/Sidebar";
-import NodeList from "@/components/NodeList";
-import NodeDetail from "@/components/NodeDetail";
+import NodeGraphManager from "@/components/NodeGraphManager";
 import NodePositionPicker from "@/components/NodePositionPicker";
 import GraphView from "@/components/GraphView";
 import Dashboard from "@/components/Dashboard";
@@ -53,13 +52,8 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedNode, setSelectedNode] = useState<DocumentNode | null>(null);
-  const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pendingNodeData, setPendingNodeData] = useState<Partial<DocumentNode> | null>(null);
   const [repositioningNode, setRepositioningNode] = useState<DocumentNode | null>(null);
-
-  const [searchQuery, setSearchQuery] = useState("");
 
   const loadNodes = useCallback(async () => {
     setLoading(true);
@@ -82,61 +76,65 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
     loadNodes();
   }, [loadNodes]);
 
-  async function handleSave(data: Partial<DocumentNode>) {
-    if (isNew) {
-      setPendingNodeData(data);
-      return;
-    }
-    setSaving(true);
-    try {
-      if (selectedNode) {
-        const updated = await updateNode(selectedNode.id, data);
-        await loadNodes();
-        setSelectedNode(updated);
-      }
-    } catch (e) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : typeof e === "object" && e !== null && "message" in e
-          ? String((e as { message: unknown }).message)
-          : JSON.stringify(e);
-      alert(msg);
-    } finally {
-      setSaving(false);
-    }
+  function errMsg(e: unknown) {
+    return e instanceof Error ? e.message
+      : typeof e === "object" && e !== null && "message" in e
+      ? String((e as { message: unknown }).message)
+      : JSON.stringify(e);
   }
 
-  async function handlePositionConfirm(posX: number, posY: number) {
-    if (!pendingNodeData) return;
+  async function handleCreateNode(
+    data: Partial<DocumentNode>,
+    parentId: number | null,
+    posX: number,
+    posY: number
+  ): Promise<DocumentNode> {
     setSaving(true);
     try {
       const created = await createNode({
-        title: pendingNodeData.title ?? "새 노드",
-        node_kind: pendingNodeData.node_kind ?? "content",
-        body_content: pendingNodeData.body_content ?? null,
-        parent_id: pendingNodeData.parent_id ?? null,
-        is_locked: pendingNodeData.is_locked ?? false,
-        price: pendingNodeData.price ?? null,
+        title: data.title ?? "새 노드",
+        node_kind: data.node_kind ?? "content",
+        body_content: data.body_content ?? null,
+        index_items: data.index_items ?? null,
+        parent_id: parentId,
+        is_locked: data.is_locked ?? false,
+        price: data.price ?? null,
         file_name: null,
         file_path: null,
         pos_x: posX,
         pos_y: posY,
       });
       await loadNodes();
-      setSelectedNode(created);
-      setIsNew(false);
-      setPendingNodeData(null);
+      return created;
     } catch (e) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : typeof e === "object" && e !== null && "message" in e
-          ? String((e as { message: unknown }).message)
-          : JSON.stringify(e);
-      alert(msg);
+      alert(errMsg(e));
+      throw e;
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleUpdateNode(id: number, data: Partial<DocumentNode>): Promise<DocumentNode> {
+    setSaving(true);
+    try {
+      const updated = await updateNode(id, data);
+      await loadNodes();
+      return updated;
+    } catch (e) {
+      alert(errMsg(e));
+      throw e;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteNode(id: number): Promise<void> {
+    try {
+      await deleteNode(id);
+      await loadNodes();
+    } catch (e) {
+      alert(errMsg(e));
+      throw e;
     }
   }
 
@@ -144,41 +142,14 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
     if (!repositioningNode) return;
     setSaving(true);
     try {
-      const updated = await updateNode(repositioningNode.id, { pos_x: posX, pos_y: posY });
+      await updateNode(repositioningNode.id, { pos_x: posX, pos_y: posY });
       await loadNodes();
-      setSelectedNode(updated);
       setRepositioningNode(null);
     } catch (e) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : typeof e === "object" && e !== null && "message" in e
-          ? String((e as { message: unknown }).message)
-          : JSON.stringify(e);
-      alert(msg);
+      alert(errMsg(e));
     } finally {
       setSaving(false);
     }
-  }
-
-  async function handleDelete(id: number) {
-    try {
-      await deleteNode(id);
-      await loadNodes();
-      setSelectedNode(null);
-      setIsNew(false);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "삭제 실패");
-    }
-  }
-
-  const [newParentId, setNewParentId] = useState<number | null>(null);
-
-  function handleAddNew(parentId?: number) {
-    setIsNew(true);
-    setSelectedNode(null);
-    setNewParentId(parentId ?? null);
-    setTab("nodes");
   }
 
   return (
@@ -187,10 +158,6 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
         activeTab={tab}
         onTabChange={(t) => {
           setTab(t as Tab);
-          if (t !== "nodes" && t !== "search") {
-            setSelectedNode(null);
-            setIsNew(false);
-          }
         }}
         totalNodes={nodes.length}
         user={session.user}
@@ -257,48 +224,20 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
             <GraphView
               nodes={nodes}
               onSelectNode={(node) => {
-                setSelectedNode(node);
-                setIsNew(false);
                 setTab("nodes");
               }}
             />
           )}
 
           {(tab === "nodes" || tab === "search") && (
-            <>
-              {/* Node list panel */}
-              <div className="w-72 min-w-72 flex flex-col border-r border-gray-200 overflow-hidden">
-                <NodeList
-                  nodes={nodes}
-                  selectedId={selectedNode?.id ?? null}
-                  onSelect={(n) => {
-                    setSelectedNode(n);
-                    setIsNew(false);
-                  }}
-                  onAdd={handleAddNew}
-                  onRefresh={loadNodes}
-                  loading={loading}
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                />
-              </div>
-
-              {/* Detail panel */}
-              <NodeDetail
-                node={selectedNode}
-                allNodes={nodes}
-                isNew={isNew}
-                parentId={newParentId}
-                onSave={handleSave}
-                onDelete={handleDelete}
-                onReposition={selectedNode ? () => setRepositioningNode(selectedNode) : undefined}
-                onClose={() => {
-                  setSelectedNode(null);
-                  setIsNew(false);
-                }}
-                saving={saving}
-              />
-            </>
+            <NodeGraphManager
+              nodes={nodes}
+              saving={saving}
+              onCreateNode={handleCreateNode}
+              onUpdateNode={handleUpdateNode}
+              onDeleteNode={handleDeleteNode}
+              onStartReposition={(node) => setRepositioningNode(node)}
+            />
           )}
 
           {tab === "settings" && (
@@ -333,15 +272,6 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
           )}
         </div>
       </div>
-      {pendingNodeData && (
-        <NodePositionPicker
-          nodes={nodes}
-          parentId={pendingNodeData.parent_id ?? null}
-          newNodeTitle={pendingNodeData.title ?? "새 노드"}
-          onConfirm={handlePositionConfirm}
-          onBack={() => setPendingNodeData(null)}
-        />
-      )}
       {repositioningNode && (
         <NodePositionPicker
           nodes={nodes.filter((n) => n.id !== repositioningNode.id)}

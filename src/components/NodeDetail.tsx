@@ -12,9 +12,12 @@ import {
   GitBranch,
   FileText,
   MapPin,
+  List,
+  Plus,
+  GripVertical,
 } from "lucide-react";
 import clsx from "clsx";
-import type { DocumentNode, NodeKind } from "@/lib/types";
+import type { DocumentNode, IndexItem, NodeKind } from "@/lib/types";
 import { nodeKindLabel, nodeKindColor } from "@/lib/utils";
 import RichEditor from "./RichEditor";
 
@@ -23,6 +26,7 @@ interface NodeDetailProps {
   allNodes: DocumentNode[];
   isNew: boolean;
   parentId?: number | null;
+  pendingPosition?: { x: number; y: number } | null;
   onSave: (data: Partial<DocumentNode>) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onReposition?: () => void;
@@ -35,6 +39,7 @@ export default function NodeDetail({
   allNodes,
   isNew,
   parentId,
+  pendingPosition,
   onSave,
   onDelete,
   onReposition,
@@ -47,6 +52,7 @@ export default function NodeDetail({
   const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [price, setPrice] = useState<string>("");
+  const [indexItems, setIndexItems] = useState<IndexItem[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -57,6 +63,7 @@ export default function NodeDetail({
       setSelectedParentId(parentId ?? null);
       setIsLocked(false);
       setPrice("");
+      setIndexItems([]);
     } else if (node) {
       setTitle(node.title);
       setNodeKind(node.node_kind);
@@ -64,6 +71,7 @@ export default function NodeDetail({
       setSelectedParentId(node.parent_id);
       setIsLocked(node.is_locked);
       setPrice(node.price !== null && node.price !== undefined ? String(node.price) : "");
+      setIndexItems(node.index_items ?? []);
     }
     setConfirmDelete(false);
   }, [node, isNew, parentId]);
@@ -81,6 +89,35 @@ export default function NodeDetail({
 
   const parentNode = allNodes.find((n) => n.id === selectedParentId);
 
+  function addIndexItem() {
+    setIndexItems((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), title: "" },
+    ]);
+  }
+
+  function updateIndexItem(id: string, value: string) {
+    setIndexItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, title: value } : item))
+    );
+  }
+
+  function removeIndexItem(id: string) {
+    setIndexItems((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function moveIndexItem(id: string, dir: -1 | 1) {
+    setIndexItems((prev) => {
+      const idx = prev.findIndex((item) => item.id === id);
+      if (idx < 0) return prev;
+      const next = [...prev];
+      const swap = idx + dir;
+      if (swap < 0 || swap >= next.length) return prev;
+      [next[idx], next[swap]] = [next[swap], next[idx]];
+      return next;
+    });
+  }
+
   async function handleSave() {
     await onSave({
       title,
@@ -89,6 +126,9 @@ export default function NodeDetail({
       parent_id: selectedParentId,
       is_locked: isLocked,
       price: price.trim() === "" ? null : parseInt(price.replace(/,/g, ""), 10),
+      index_items: indexItems.filter((item) => item.title.trim()).length > 0
+        ? indexItems.filter((item) => item.title.trim())
+        : null,
     });
   }
 
@@ -250,6 +290,109 @@ export default function NodeDetail({
           </div>
         </div>
 
+        {/* Position settings */}
+        {(isNew ? !!pendingPosition : !!node) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+            <SectionLabel icon={<MapPin size={12} />}>위치 설정</SectionLabel>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                    X 좌표
+                  </span>
+                  <span className="text-sm font-mono text-gray-700 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
+                    {isNew ? pendingPosition!.x : (node!.pos_x ?? 0)}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                    Y 좌표
+                  </span>
+                  <span className="text-sm font-mono text-gray-700 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
+                    {isNew ? pendingPosition!.y : (node!.pos_y ?? 0)}
+                  </span>
+                </div>
+              </div>
+              {!isNew && onReposition && (
+                <button
+                  onClick={onReposition}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
+                >
+                  <MapPin size={13} />
+                  위치 변경
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Index items */}
+        {nodeKind !== "file" && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <SectionLabel icon={<List size={12} />}>목차 항목</SectionLabel>
+              <span className="text-[11px] text-gray-400">
+                유저 화면에서 진도 체크 항목으로 표시됩니다
+              </span>
+            </div>
+
+            {indexItems.length > 0 && (
+              <ul className="space-y-1.5">
+                {indexItems.map((item, idx) => (
+                  <li key={item.id} className="flex items-center gap-2">
+                    <span className="shrink-0 text-[11px] font-mono text-gray-300 w-4 text-right">
+                      {idx + 1}
+                    </span>
+                    <div className="flex flex-col gap-0.5 shrink-0">
+                      <button
+                        onClick={() => moveIndexItem(item.id, -1)}
+                        disabled={idx === 0}
+                        className="text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors leading-none"
+                      >
+                        <GripVertical size={10} className="rotate-90" />
+                      </button>
+                      <button
+                        onClick={() => moveIndexItem(item.id, 1)}
+                        disabled={idx === indexItems.length - 1}
+                        className="text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors leading-none"
+                      >
+                        <GripVertical size={10} className="-rotate-90" />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={item.title}
+                      onChange={(e) => updateIndexItem(item.id, e.target.value)}
+                      placeholder="항목 제목을 입력하세요"
+                      className="input flex-1 text-sm"
+                    />
+                    <button
+                      onClick={() => removeIndexItem(item.id)}
+                      className="shrink-0 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {indexItems.length === 0 && (
+              <p className="text-xs text-gray-400 italic py-1">
+                항목이 없습니다. 아래 버튼으로 목차를 추가하세요.
+              </p>
+            )}
+
+            <button
+              onClick={addIndexItem}
+              className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
+            >
+              <Plus size={12} />
+              항목 추가
+            </button>
+          </div>
+        )}
+
         {/* Content editor */}
         {nodeKind !== "file" && (
           <div className="space-y-2">
@@ -279,15 +422,6 @@ export default function NodeDetail({
           {isNew ? "새 노드를 생성합니다" : `노드 #${node?.id} 수정`}
         </p>
         <div className="flex items-center gap-2">
-          {!isNew && onReposition && (
-            <button
-              onClick={onReposition}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
-            >
-              <MapPin size={13} />
-              위치 재설정
-            </button>
-          )}
           <button
             onClick={handleSave}
             disabled={saving || !title.trim()}
@@ -299,7 +433,7 @@ export default function NodeDetail({
             )}
           >
             <Save size={13} />
-            {saving ? "저장 중..." : isNew ? "다음: 위치 설정 →" : "저장"}
+            {saving ? "저장 중..." : "저장"}
           </button>
         </div>
       </div>
