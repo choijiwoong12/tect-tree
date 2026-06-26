@@ -31,7 +31,7 @@ export function InfoPanel({
   const onSubscriptionClick = subscribed ? onOpenSubscriptionManage : onOpenShop;
 
   return (
-    <div className="pointer-events-auto absolute left-[46px] top-[729px] w-[263px] z-40 font-pixel text-[16px] leading-normal text-white">
+    <div className="pointer-events-auto absolute left-[46px] top-[729px] h-[292px] w-[263px] z-40 font-pixel text-[21px] leading-none text-white">
       {user ? (
         <MemberInfo
           user={user}
@@ -79,50 +79,45 @@ function MemberInfo({
   // 콜사인-이름 형태로 표시(둘 다 있으면 "콜사인-이름", 하나만 있으면 그것, 없으면 닉네임).
   // TODO: 등급/직전노드/진행률/구독상태는 users 스키마 확장 + 노드 연동 후 실제 값으로.
   const display = [user.callsign, user.name].filter(Boolean).join("-") || user.nickname || "YOU";
+  const rp = (user.rp_balance ?? 0).toLocaleString();
+  // 박스(X46 Y729) 기준 절대좌표. 하단 버튼은 디자인 정확값: CS top212(Y941), NOTICE top231(Y960), LOG OUT top271(Y1000), W216.
+  // 상단 정보 Y는 패널 미제공 → 행피치 19 / 그룹간격 43으로 버튼과 정렬되게 추정.
   return (
-    <div className="text-white">
+    <>
       {/* 콜사인-이름 — TODO: 클릭 시 콜사인 수정 */}
-      <div className="mb-3">[ {display} ]</div>
+      <div className="absolute left-0 top-[6px]">[ {display} ]</div>
 
-      <div className="flex">
-        <span className="w-[100px] shrink-0">CLEARANCE</span>
-        <span>: LEVEL 1</span>
+      <div className="absolute left-0 top-[50px]">
+        <span className="inline-block w-[112px]">CLEARANCE</span>: LEVEL 1
       </div>
       {/* LAST NOD — TODO: 직전 열람 노드, 클릭 시 해당 노드로 이동 */}
-      <div className="flex">
-        <span className="w-[100px] shrink-0">LAST NOD</span>
-        <span>: -</span>
+      <div className="absolute left-0 top-[69px]">
+        <span className="inline-block w-[112px]">LAST NOD</span>: -
       </div>
-      <div className="flex">
-        <span className="w-[100px] shrink-0" />
-        <span>:</span>
+      <div className="absolute left-0 top-[88px]">
+        <span className="inline-block w-[112px]" />:
       </div>
-      <div className="mb-3 flex">
-        <span className="w-[100px] shrink-0">PROGRESS</span>
-        <span>: 0.00 %</span>
+      <div className="absolute left-0 top-[107px]">
+        <span className="inline-block w-[112px]">PROGRESS</span>: 0.00 %
       </div>
 
-      <div className="flex">
-        <span className="w-[100px] shrink-0">RP</span>
-        <span>: {(user.rp_balance ?? 0).toLocaleString()}</span>
+      <div className="absolute left-0 top-[150px]">
+        <span className="inline-block w-[112px]">RP</span>: {rp}
       </div>
-      <button onClick={onSubscriptionClick} className="mb-3 block text-left transition-colors hover:text-white/70">
+      <button onClick={onSubscriptionClick} className="absolute left-0 top-[169px] text-left transition-colors hover:text-white/70">
         MONTHLY SUBSCRIPTION OFF
       </button>
 
-      <div className="flex flex-col gap-1">
-        <button onClick={onOpenCustomerService} className="text-left transition-colors hover:text-white/70">
-          ( CUSTOMER SERVICE )
-        </button>
-        <button onClick={onOpenNotice} className="text-left transition-colors hover:text-white/70">
-          ( N O T I C E )
-        </button>
-      </div>
-
-      {/* LOG OUT — 헤더에 있던 로그아웃을 회원정보 하단으로 이동 */}
-      <button onClick={onLogout} className="mt-3 block text-left transition-colors hover:text-red-500">
+      {/* 하단 버튼 — 디자인 정확값. NOTICE/LOG OUT은 자간으로 W216 채움 */}
+      <button onClick={onOpenCustomerService} className="absolute left-0 top-[212px] w-[216px] text-left transition-colors hover:text-white/70">
+        ( CUSTOMER SERVICE )
+      </button>
+      <button onClick={onOpenNotice} className="absolute left-0 top-[231px] w-[216px] text-left tracking-[0.56em] transition-colors hover:text-white/70">
+        ( NOTICE )
+      </button>
+      <button onClick={onLogout} className="absolute left-0 top-[271px] w-[216px] text-left tracking-[0.46em] transition-colors hover:text-red-500">
         [ LOG OUT ]
       </button>
-    </div>
+    </>
   );
 }
