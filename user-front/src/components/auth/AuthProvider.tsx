@@ -1,9 +1,22 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
 import type { User } from "@/types/api";
+
+// users 테이블 프로필 + auth user_metadata(이름/콜사인)를 합쳐 User로.
+// (users 테이블에 name/callsign 컬럼이 없어도 동작하도록 metadata에 저장)
+function mergeProfile(profile: unknown, session: Session): User | null {
+  if (!profile) return null;
+  const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
+  return {
+    ...(profile as User),
+    name: (meta.name as string | undefined) || undefined,
+    callsign: (meta.callsign as string | undefined) || undefined,
+  };
+}
 
 interface AuthContextType {
   user: User | null;
@@ -61,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .single();
 
         if (mounted) {
-          setUser(profile ? (profile as unknown as User) : null);
+          setUser(mergeProfile(profile, session));
           setLoading(false);
         }
       } catch (err) {
@@ -87,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .eq("id", session.user.id)
               .single();
             if (mounted) {
-              setUser(!error && profile ? (profile as unknown as User) : null);
+              setUser(!error ? mergeProfile(profile, session) : null);
             }
           } else {
             if (mounted) setUser(null);
@@ -121,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("*")
       .eq("id", session.user.id)
       .single();
-    setUser(profile ? (profile as unknown as User) : null);
+    setUser(mergeProfile(profile, session));
   }, [supabase]);
 
   const login = useCallback(async (email: string, password: string) => {

@@ -76,12 +76,13 @@ function MemberInfo({
   onSubscriptionClick?: () => void;
   onLogout?: () => void;
 }) {
-  // TODO: 콜사인/등급/직전노드/진행률/구독상태는 users 스키마 확장 + 노드 연동 후 실제 값으로.
-  const callSign = user.nickname || "YOU";
+  // 콜사인-이름 형태로 표시(둘 다 있으면 "콜사인-이름", 하나만 있으면 그것, 없으면 닉네임).
+  // TODO: 등급/직전노드/진행률/구독상태는 users 스키마 확장 + 노드 연동 후 실제 값으로.
+  const display = [user.callsign, user.name].filter(Boolean).join("-") || user.nickname || "YOU";
   return (
     <div className="text-white">
-      {/* 콜사인 — TODO: 클릭 시 콜사인 수정 */}
-      <div className="mb-3">[ {callSign} ]</div>
+      {/* 콜사인-이름 — TODO: 클릭 시 콜사인 수정 */}
+      <div className="mb-3">[ {display} ]</div>
 
       <div className="flex">
         <span className="w-[100px] shrink-0">CLEARANCE</span>

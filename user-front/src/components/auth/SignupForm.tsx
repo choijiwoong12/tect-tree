@@ -4,7 +4,7 @@ import { useState, type ChangeEvent } from "react";
 import { PRIVACY_POLICY } from "@/content/legal";
 
 interface SignupFormProps {
-  onComplete: () => void;
+  onComplete: (profile: { name: string; gender: string; age: string; phone: string }) => void;
   onBack?: () => void;
 }
 
@@ -64,8 +64,8 @@ export function SignupForm({ onComplete }: SignupFormProps) {
 
   function handleNext() {
     if (!canNext) return;
-    // TODO: 프로필(name/gender/age/phone, 마케팅 동의) → users 테이블 저장 (스키마 컬럼 추가 후)
-    onComplete();
+    // 입력값을 상위(page.tsx)로 전달 → auth user_metadata에 저장
+    onComplete({ name: name.trim(), gender: gender ?? "", age: age.trim(), phone: phone.trim() });
   }
 
   return (

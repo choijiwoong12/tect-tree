@@ -2,6 +2,8 @@ export interface User {
   id: string; // UUID from Supabase auth.users
   email: string;
   nickname: string;
+  name?: string; // 회원가입 입력 이름 (auth user_metadata)
+  callsign?: string; // 콜사인 (auth user_metadata)
   rp_balance: number;
   profile_image_url: string | null;
   created_at: string;
