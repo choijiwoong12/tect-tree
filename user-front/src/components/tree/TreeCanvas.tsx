@@ -1,170 +1,84 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import {
-  ReactFlow,
-  Background,
-  BackgroundVariant,
-  useNodesState,
-  useEdgesState,
-  Edge,
-  Node,
-  useReactFlow,
-} from '@xyflow/react'
+import { useCallback, useEffect } from 'react'
+import { ReactFlow, useNodesState, Node, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useAppStore } from '@/store/useAppStore'
 import { DotNode } from './DotNode'
-import { UnlockModal } from './UnlockModal'
-import { DocumentViewer } from './DocumentViewer'
-import { nodeSpecs, links, ROOT_ID, computeRadialLayout } from './treeGraph'
 
 const nodeTypes = { dot: DotNode }
 
-// Positions are derived from the graph (see treeGraph.ts) so the tree stays
-// aligned and new nodes automatically branch out from their parent.
-const layout = computeRadialLayout(
-  nodeSpecs.map((s) => s.id),
-  links,
-  ROOT_ID,
-)
+// 트리는 어드민 document_nodes의 pos_x/pos_y(1920 디자인 좌표)를 그대로 쓴다.
+// 현재 단계: 하드코딩 그래프 제거 후 루트(유저) 노드만 고정 배치. 어드민 노드 연동은 다음 단계.
+const DESIGN_W = 1920
+const DESIGN_H = 1080
 
-const initialNodes: Node[] = nodeSpecs.map((spec) => ({
-  id: spec.id,
-  type: 'dot',
-  position: layout.get(spec.id) ?? { x: 0, y: 0 },
-  data: { label: spec.label, status: spec.status, ...(spec.cost != null ? { cost: spec.cost } : {}) },
-}))
-
-const initialEdges: Edge[] = links.map((l) => ({
-  id: `e${l.source}-${l.target}`,
-  source: l.source,
-  target: l.target,
-}))
+// 루트(유저) 노드 — 디자인상 과녁 top-left (X612 Y703) = 중심 (627,718).
+const ROOT_POS = { x: 612, y: 703 }
 
 interface TreeCanvasProps {
   themeId: string
   isLoggedIn?: boolean
+  rootLabel?: string // 로그인 시 콜사인-이름 (없으면 LOG IN)
   onLoginClick?: () => void
-  onFocusChange?: (label: string) => void
   onCenterClick?: () => void
   onOpenShop?: () => void
 }
 
-export function TreeCanvas({ isLoggedIn, onLoginClick, onFocusChange, onCenterClick, onOpenShop }: TreeCanvasProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges)
-  const { rpBalance, setRpBalance, recentNodeId, setRecentNodeId } = useAppStore()
-  const { fitView, setCenter } = useReactFlow()
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null)
+export function TreeCanvas({ isLoggedIn, rootLabel, onLoginClick, onCenterClick }: TreeCanvasProps) {
+  const [nodes, , onNodesChange] = useNodesState([
+    { id: 'root', type: 'dot', position: ROOT_POS, data: { isRoot: true }, draggable: false } as Node,
+  ])
+  const { setViewport } = useReactFlow()
 
+  // 트리를 1920 디자인 좌표공간에 정합 — DesignOverlay(상단기준·가로중앙)와 동일 스케일/오프셋.
+  // 그래서 노드 pos_x/pos_y(디자인 px)가 헤더/정보 패널과 같은 위치·크기로 보인다.
   useEffect(() => {
-    setTimeout(() => {
-      // On initial load (no recent node) jump straight to the final framing with
-      // no camera animation, so the graph just fades in at its final zoom instead
-      // of zooming in/out. Only animate when focusing a freshly-unlocked node.
-      const duration = recentNodeId ? 800 : 0
-      const targetId = recentNodeId || '1'
-      const targetNode = nodes.find(n => n.id === targetId)
-      if (targetNode) {
-        setCenter(targetNode.position.x + 10, targetNode.position.y + 10, { zoom: 0.85, duration })
-      } else {
-        fitView({ duration, padding: 0.2 })
-      }
-    }, 100)
-  }, [recentNodeId, nodes, setCenter, fitView])
-
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    if (!isLoggedIn && node.id === '1' && onLoginClick) {
-      onLoginClick()
-      return
+    function align() {
+      const scale = Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H)
+      const offsetX = (window.innerWidth - DESIGN_W * scale) / 2
+      setViewport({ x: offsetX, y: 0, zoom: scale })
     }
-    if (!isLoggedIn) return
-    if (node.id === '1') {
-      // 로그인 후 중앙(콜사인) 노드 클릭 → 좌하단 자기정보 토글
-      onCenterClick?.()
-      return
+    const id = setTimeout(align, 50)
+    window.addEventListener('resize', align)
+    return () => {
+      clearTimeout(id)
+      window.removeEventListener('resize', align)
     }
-    if (node.data.status === 'locked') return
-    setSelectedNode(node)
-    if (onFocusChange) onFocusChange((node.data.label as string).replace(/\n/g, ' '))
-  }, [isLoggedIn, onLoginClick, onFocusChange, onCenterClick])
+  }, [setViewport])
 
-  const handleUnlock = () => {
-    if (!selectedNode) return
-    const cost = (selectedNode.data.cost as number) || 0
-    if (rpBalance < cost) return
+  const onNodeClick = useCallback(
+    (_e: React.MouseEvent, node: Node) => {
+      if (node.id !== 'root') return
+      // 로그아웃: 구글 로그인 / 로그인: 회원정보 토글
+      if (!isLoggedIn) onLoginClick?.()
+      else onCenterClick?.()
+    },
+    [isLoggedIn, onLoginClick, onCenterClick],
+  )
 
-    setRpBalance(rpBalance - cost)
-    setNodes(nds => nds.map(n => {
-      if (n.id === selectedNode.id) {
-        return { ...n, data: { ...n.data, status: 'unlocked' } }
-      }
-      const childrenIds = edges.filter(e => e.source === selectedNode.id).map(e => e.target)
-      if (childrenIds.includes(n.id) && n.data.status === 'locked') {
-        return { ...n, data: { ...n.data, status: 'unlockable', cost: 1500 } }
-      }
-      return n
-    }))
-
-    setRecentNodeId(selectedNode.id)
-    setSelectedNode(null)
-  }
-
-  const decoratedNodes = nodes.map(n => {
-    if (!isLoggedIn) {
-      if (n.id === '1') {
-        return { ...n, data: { ...n.data, label: 'LOG IN', isLoginNode: true, status: 'unlocked' } }
-      }
-      // Hide all other node labels and force them into locked appearance
-      return { ...n, data: { ...n.data, label: '???', isLoginNode: false, status: 'locked' } }
-    }
-    return { ...n, data: { ...n.data, isLoginNode: false } }
-  })
-
-  const decoratedEdges = edges.map(e => ({
-    ...e,
-    type: 'straight',
-    animated: false,
-    style: { stroke: 'rgba(255,255,255,0.45)', strokeWidth: 1 },
+  const decorated = nodes.map((n) => ({
+    ...n,
+    data: { ...n.data, isLoggedIn, label: isLoggedIn ? rootLabel ?? '' : 'LOG IN' },
   }))
 
   return (
-    <div className="relative z-10 w-full h-full">
+    <div className="relative z-10 h-full w-full">
       <ReactFlow
-        nodes={decoratedNodes}
-        edges={decoratedEdges}
+        nodes={decorated}
+        edges={[]}
         onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
-        fitView
-        minZoom={0.4}
-        maxZoom={3}
         nodesDraggable={false}
         nodesConnectable={false}
+        panOnDrag={false}
+        zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
         colorMode="dark"
         style={{ background: 'transparent' }}
-      >
-      </ReactFlow>
-
-      {selectedNode && selectedNode.data.status === 'unlockable' && (
-        <UnlockModal
-          label={(selectedNode.data.label as string).replace(/\n/g, ' ')}
-          cost={(selectedNode.data.cost as number) || 0}
-          rpBalance={rpBalance}
-          onClose={() => setSelectedNode(null)}
-          onUnlockRP={handleUnlock}
-          onOpenShop={() => { setSelectedNode(null); onOpenShop?.() }}
-        />
-      )}
-
-      {selectedNode && selectedNode.data.status === 'unlocked' && (
-        <DocumentViewer
-          label={(selectedNode.data.label as string).replace(/\n/g, ' ')}
-          onClose={() => setSelectedNode(null)}
-        />
-      )}
+      />
     </div>
   )
 }

@@ -29,6 +29,7 @@ export function TechTree({ onLoginClick }: TechTreeProps) {
         <TreeCanvas
           themeId="main-tree"
           isLoggedIn={!!user}
+          rootLabel={user ? [user.callsign, user.name].filter(Boolean).join('-') || user.nickname || 'YOU' : undefined}
           onLoginClick={onLoginClick}
           onCenterClick={() => setShowMember((v) => !v)}
           onOpenShop={() => setModal('shop')}

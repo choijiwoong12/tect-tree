@@ -17,40 +17,48 @@ const centerHandleStyle = {
 } as const
 
 export function DotNode({ data }: NodeProps) {
-  const status = data.status as 'unlocked' | 'unlockable' | 'locked'
-  const isLoginNode = data.isLoginNode as boolean
+  const isRoot = data.isRoot as boolean
   const label = data.label as string
 
-  // Login (logged-out center) node: red filled circle with white hand-drawn outline
-  if (isLoginNode) {
+  // 루트(유저) 노드 — 빨강 과녁(◎): 외곽 링 30px(4px) + 중앙 점 10px. 라벨 Sam3KRFont 33 빨강.
+  // 로그아웃 = "LOG IN", 로그인 = 콜사인-이름.
+  if (isRoot) {
     return (
-      <div className="relative flex flex-col items-center justify-center">
+      <div className="relative flex flex-col items-center">
         <Handle type="target" position={Position.Top} style={centerHandleStyle} isConnectable={false} />
-        <div
-          className="w-7 h-7 rounded-full bg-red-600 shadow-[0_0_24px_rgba(220,38,38,0.7)] cursor-pointer"
-        />
-        <div className="absolute top-9 font-pixel text-base text-red-500 tracking-widest whitespace-nowrap">
-          {label}
+        <div className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-full border-[4px] border-[#FF0000]">
+          <div className="h-[10px] w-[10px] rounded-full bg-[#FF0000]" />
         </div>
+        {label ? (
+          <div className="absolute left-1/2 top-[38px] -translate-x-1/2 whitespace-nowrap font-pixel text-[33px] leading-none text-[#FF0000]">
+            {label}
+          </div>
+        ) : null}
         <Handle type="source" position={Position.Bottom} style={centerHandleStyle} isConnectable={false} />
       </div>
     )
   }
 
+  // 콘텐츠 노드 — 다음 단계(document_nodes 연동)에서 is_locked/해금 상태로 다시 구현.
+  const status = data.status as 'unlocked' | 'unlockable' | 'locked'
   const isUnlocked = status === 'unlocked'
   const isUnlockable = status === 'unlockable'
 
-  // Dot color: unlocked = white, unlockable = mid-gray, locked = dark
   let bg = '#2a2a2a'
   let border = '#3a3a3a'
-  if (isUnlocked) { bg = '#ffffff'; border = '#ffffff' }
-  else if (isUnlockable) { bg = '#6a6a6a'; border = '#888' }
+  if (isUnlocked) {
+    bg = '#ffffff'
+    border = '#ffffff'
+  } else if (isUnlockable) {
+    bg = '#6a6a6a'
+    border = '#888'
+  }
 
   return (
     <div className="relative flex flex-col items-center justify-center">
       <Handle type="target" position={Position.Top} style={centerHandleStyle} isConnectable={false} />
       <div
-        className="w-5 h-5 rounded-full flex items-center justify-center transition-all"
+        className="flex h-5 w-5 items-center justify-center rounded-full transition-all"
         style={{
           backgroundColor: bg,
           border: `1px solid ${border}`,
