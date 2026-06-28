@@ -135,9 +135,10 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
               <h1 className="font-pixel text-4xl md:text-5xl text-red-600 tracking-wider mb-12 break-keep">
                 {content.title}
               </h1>
-              <div className="leading-loose text-[15px] md:text-base break-keep whitespace-pre-wrap">
-                {content.body_content ?? ''}
-              </div>
+              <div
+                className="document-body leading-loose break-keep [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1 [&_hr]:border-neutral-600 [&_hr]:my-6"
+                dangerouslySetInnerHTML={{ __html: content.body_content ?? '' }}
+              />
             </>
           ) : (
             <div className="flex h-full items-center justify-center">
