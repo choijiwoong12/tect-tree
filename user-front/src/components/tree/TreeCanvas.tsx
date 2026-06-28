@@ -52,6 +52,13 @@ interface ApiNode {
   price: number | null
 }
 
+export interface ContentNodeInfo {
+  nodeId: number
+  title: string
+  isUnlocked: boolean
+  price: number | null
+}
+
 interface TreeCanvasProps {
   themeId: string
   isLoggedIn?: boolean
@@ -59,9 +66,10 @@ interface TreeCanvasProps {
   onLoginClick?: () => void
   onCenterClick?: () => void
   onOpenShop?: () => void
+  onContentNodeClick?: (info: ContentNodeInfo) => void
 }
 
-export function TreeCanvas({ isLoggedIn, rootLabel, onLoginClick, onCenterClick }: TreeCanvasProps) {
+export function TreeCanvas({ isLoggedIn, rootLabel, onLoginClick, onCenterClick, onContentNodeClick }: TreeCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const { setViewport } = useReactFlow()
@@ -100,6 +108,7 @@ export function TreeCanvas({ isLoggedIn, rootLabel, onLoginClick, onCenterClick 
               : {
                   label: n.title,
                   isUnlocked: isLoggedIn ? !n.is_locked || unlockedSet.has(n.id) : false,
+                  price: n.price,
                 },
             draggable: false,
           }
@@ -134,11 +143,22 @@ export function TreeCanvas({ isLoggedIn, rootLabel, onLoginClick, onCenterClick 
 
   const onNodeClick = useCallback(
     (_e: React.MouseEvent, node: Node) => {
-      if (node.id !== rootIdRef.current) return
-      if (!isLoggedIn) onLoginClick?.()
-      else onCenterClick?.()
+      if (node.id === rootIdRef.current) {
+        if (!isLoggedIn) onLoginClick?.()
+        else onCenterClick?.()
+        return
+      }
+      // 콘텐츠 노드: 로그인 상태일 때만 반응
+      if (isLoggedIn) {
+        onContentNodeClick?.({
+          nodeId: Number(node.id),
+          title: node.data.label as string,
+          isUnlocked: node.data.isUnlocked as boolean,
+          price: node.data.price as number | null,
+        })
+      }
     },
-    [isLoggedIn, onLoginClick, onCenterClick],
+    [isLoggedIn, onLoginClick, onCenterClick, onContentNodeClick],
   )
 
   return (

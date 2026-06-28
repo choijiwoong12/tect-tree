@@ -1,49 +1,98 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 interface DocumentViewerProps {
-  label: string;
+  nodeId: number;
   onClose: () => void;
 }
 
-// 프레임: node_viewer (다크/화이트) + 스크롤디테일
-// - 제목(빨강) + 부제 + 본문, 다크/화이트 토글, 우측 스크롤=목차 레일(읽으면 원 채움, 클릭 시 이동)
-// - 헤더 로고 클릭 → 메인(트리)으로 복귀
-// TODO: 제목/부제/본문/목차는 어드민 document_nodes(body_content 등) 연동 후 실제 값으로.
-const SECTIONS = [
-  { title: "서장", body: "여기에 추후 어드민 document_nodes에서 불러온 본문(body_content)이 들어갑니다. 현재는 레이아웃·인터랙션 확인용 임시 텍스트입니다." },
-  { title: "1장", body: "스크롤을 내리면 우측 목차 레일의 동그라미가 읽은 지점까지 차오릅니다. 마치 게임의 자동 세이브 포인트처럼 진행 위치를 표시합니다." },
-  { title: "2장", body: "우측 목차의 동그라미를 클릭하면 해당 위치로 즉시 이동합니다. 본문은 고정 폰트로 표시되며 영역 안에서 스크롤됩니다." },
-  { title: "3장", body: "상단의 토글로 다크 모드와 화이트 모드를 전환할 수 있습니다. 헤더의 ATHENA DOCTRINE 로고를 누르면 트리 메인으로 빠져나갑니다." },
-  { title: "종장", body: "실제 서비스에서는 노드별로 서로 다른 분량의 문서가 들어가며, 목차 섹션 수도 문서에 따라 달라집니다." },
-];
+interface NodeContent {
+  title: string;
+  body_content: string | null;
+  index_items: unknown;
+}
 
-export function DocumentViewer({ label, onClose }: DocumentViewerProps) {
+function parseIndexItems(raw: unknown): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((item) =>
+      typeof item === 'string' ? item : (item as Record<string, string>)?.title ?? String(item)
+    );
+  }
+  return [];
+}
+
+export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
   const [mounted, setMounted] = useState(false);
   const [isLightMode, setIsLightMode] = useState(false);
-  const [readCount, setReadCount] = useState(1);
+  const [content, setContent] = useState<NodeContent | null>(null);
+  const [sections, setSections] = useState<string[]>([]);
+  const [readCount, setReadCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => setMounted(true), []);
 
+  useEffect(() => {
+    async function load() {
+      const [contentRes, progressRes] = await Promise.all([
+        fetch(`/api/nodes/content?id=${nodeId}`),
+        fetch(`/api/nodes/progress?id=${nodeId}`),
+      ]);
+      if (!contentRes.ok) return;
+      const data: NodeContent = await contentRes.json();
+      setContent(data);
+
+      const items = parseIndexItems(data.index_items);
+      setSections(items.length > 0 ? items : ['전체']);
+
+      if (progressRes.ok) {
+        const { read_items } = await progressRes.json() as { read_items: string[] };
+        if (read_items?.length) {
+          const maxRead = Math.max(...read_items.map(Number).filter((n) => !isNaN(n)));
+          setReadCount(isFinite(maxRead) ? maxRead + 1 : 0);
+        }
+      }
+    }
+    load();
+  }, [nodeId]);
+
+  // 스크롤 → 읽은 섹션 계산 + debounced 저장
+  const saveProgress = useCallback(
+    (count: number, sectionList: string[]) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        const readItems = Array.from({ length: count }, (_, i) => String(i));
+        fetch('/api/nodes/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nodeId, readItems }),
+        }).catch(() => {});
+        void sectionList; // suppress unused warning
+      }, 800);
+    },
+    [nodeId]
+  );
+
   function handleScroll() {
     const c = containerRef.current;
-    if (!c) return;
-    const mid = c.scrollTop + c.clientHeight * 0.35;
-    let count = 0;
-    sectionRefs.current.forEach((el) => {
-      if (el && el.offsetTop <= mid) count++;
-    });
-    setReadCount(Math.max(1, count));
+    if (!c || sections.length === 0) return;
+    const progress = (c.scrollTop + c.clientHeight) / c.scrollHeight;
+    const newCount = Math.min(sections.length, Math.ceil(progress * sections.length));
+    if (newCount > readCount) {
+      setReadCount(newCount);
+      saveProgress(newCount, sections);
+    }
   }
 
   function jumpTo(i: number) {
-    const el = sectionRefs.current[i];
     const c = containerRef.current;
-    if (el && c) c.scrollTo({ top: el.offsetTop, behavior: "smooth" });
+    if (!c || sections.length === 0) return;
+    const target = (i / sections.length) * c.scrollHeight;
+    c.scrollTo({ top: target, behavior: 'smooth' });
   }
 
   const bg = isLightMode ? "bg-[#f5f5f5]" : "bg-[#0a0a0a]";
@@ -57,7 +106,7 @@ export function DocumentViewer({ label, onClose }: DocumentViewerProps) {
 
   return createPortal(
     <div className={`fixed inset-0 z-[100] flex flex-col ${bg} ${text} transition-colors duration-300`}>
-      {/* 헤더: 빨간선(#FE0000) 관통 로고(좌, Sam3KRFont 27) + 다크/화이트 토글(우) */}
+      {/* 헤더 */}
       <div className="relative h-[74px] shrink-0">
         <div className="absolute left-0 right-0 top-[37px] h-px bg-[#FE0000]" />
         <button
@@ -81,44 +130,44 @@ export function DocumentViewer({ label, onClose }: DocumentViewerProps) {
       {/* 본문 + 우측 목차 레일 */}
       <div className="flex-1 min-h-0 w-full max-w-5xl mx-auto px-8 md:px-16 flex gap-8">
         <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-10 pr-4">
-          <h1 className="font-pixel text-4xl md:text-5xl text-red-600 tracking-wider mb-3 break-keep">{label}</h1>
-          <p className={`text-base md:text-lg mb-12 ${isLightMode ? "text-emerald-700" : "text-emerald-400"} break-keep`}>
-            인간 의식의 탄생을 추동한 존재론적 이정표
-          </p>
-
-          <div className="space-y-12 leading-loose text-[15px] md:text-base break-keep">
-            {SECTIONS.map((s, i) => (
-              <div
-                key={i}
-                ref={(el) => {
-                  sectionRefs.current[i] = el;
-                }}
-              >
-                <p>{s.body}</p>
+          {content ? (
+            <>
+              <h1 className="font-pixel text-4xl md:text-5xl text-red-600 tracking-wider mb-12 break-keep">
+                {content.title}
+              </h1>
+              <div className="leading-loose text-[15px] md:text-base break-keep whitespace-pre-wrap">
+                {content.body_content ?? ''}
               </div>
-            ))}
-            <div className="h-[40vh]" aria-hidden />
-          </div>
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="h-2 w-2 animate-ping rounded-full bg-red-500" />
+            </div>
+          )}
+          <div className="h-[40vh]" aria-hidden />
         </div>
 
         {/* 우측 목차 레일 */}
-        <div className="relative w-8 shrink-0 flex flex-col items-center py-10">
-          <div className={`absolute top-10 bottom-10 w-px ${railLine}`} />
-          <div className="relative flex flex-col justify-between h-full">
-            {SECTIONS.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => jumpTo(i)}
-                aria-label={`섹션 ${i + 1}로 이동`}
-                className={`w-3 h-3 rounded-full border transition-colors ${i < readCount ? dotFill : `bg-transparent ${dotEmpty}`}`}
-              />
-            ))}
+        {sections.length > 0 && (
+          <div className="relative w-8 shrink-0 flex flex-col items-center py-10">
+            <div className={`absolute top-10 bottom-10 w-px ${railLine}`} />
+            <div className="relative flex flex-col justify-between h-full">
+              {sections.map((title, i) => (
+                <button
+                  key={i}
+                  onClick={() => jumpTo(i)}
+                  title={title}
+                  aria-label={`${title}로 이동`}
+                  className={`w-3 h-3 rounded-full border transition-colors ${i < readCount ? dotFill : `bg-transparent ${dotEmpty}`}`}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className={`shrink-0 py-4 px-6 text-right font-pixel text-xs ${muted}`}>
-        {readCount} / {SECTIONS.length}
+        {readCount} / {sections.length}
       </div>
     </div>,
     document.body,
