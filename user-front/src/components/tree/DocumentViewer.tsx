@@ -129,7 +129,7 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
 
       {/* 본문 + 우측 목차 레일 */}
       <div className="flex-1 min-h-0 w-full max-w-5xl mx-auto px-8 md:px-16 flex gap-8">
-        <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-10 pr-4">
+        <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto scrollbar-hide py-10 pr-4">
           {content ? (
             <>
               <h1 className="font-pixel text-4xl md:text-5xl text-red-600 tracking-wider mb-12 break-keep">
