@@ -34,7 +34,13 @@ export function InfoPanel({
   const onSubscriptionClick = subscribed ? onOpenSubscriptionManage : onOpenShop;
 
   return (
-    <div className="pointer-events-auto absolute left-[46px] top-[729px] h-[292px] w-[263px] z-40 font-pixel text-[21px] leading-none text-white">
+    <div
+      className={
+        "pointer-events-auto absolute left-[46px] z-40 font-pixel text-white " +
+        // 로그인: 회원정보(X46 Y729). 로그아웃: 사업자 정보는 좌하단 구석으로.
+        (user ? "top-[729px] h-[292px] w-[263px] text-[21px] leading-none" : "bottom-[24px] w-[440px]")
+      }
+    >
       {user ? (
         <MemberInfo
           user={user}
