@@ -1,8 +1,7 @@
-import { Handle, Position, NodeProps } from '@xyflow/react'
-import { Check } from 'lucide-react'
+'use client'
 
-// Both handles are collapsed onto the node's centre so straight edges connect
-// dot-centre to dot-centre regardless of which direction a child branches.
+import { Handle, Position, NodeProps, useViewport } from '@xyflow/react'
+
 const centerHandleStyle = {
   left: '50%',
   top: '50%',
@@ -16,14 +15,17 @@ const centerHandleStyle = {
   opacity: 0,
 } as const
 
+// 줌 임계값: 이 값 이상이면 노드 제목 표시
+const LABEL_ZOOM_THRESHOLD = 0.8
+
 export function DotNode({ data }: NodeProps) {
+  const { zoom } = useViewport()
   const isRoot = data.isRoot as boolean
-  const label = data.label as string
 
   // 루트(유저) 노드 — 빨강 과녁(◎): 외곽 링 30px(4px) + 중앙 점 10px.
-  // 로그아웃 = "LOG IN"(Sam33 빨강). 로그인 = "START HERE"(Sam21 빨강) + 콜사인-닉네임(Sam33 흰색).
   if (isRoot) {
     const loggedIn = data.isLoggedIn as boolean
+    const label = data.label as string
     return (
       <div className="relative flex flex-col items-center">
         <Handle type="target" position={Position.Top} style={centerHandleStyle} isConnectable={false} />
@@ -45,41 +47,36 @@ export function DotNode({ data }: NodeProps) {
     )
   }
 
-  // 콘텐츠 노드 — 다음 단계(document_nodes 연동)에서 is_locked/해금 상태로 다시 구현.
-  const status = data.status as 'unlocked' | 'unlockable' | 'locked'
-  const isUnlocked = status === 'unlocked'
-  const isUnlockable = status === 'unlockable'
-
-  let bg = '#2a2a2a'
-  let border = '#3a3a3a'
-  if (isUnlocked) {
-    bg = '#ffffff'
-    border = '#ffffff'
-  } else if (isUnlockable) {
-    bg = '#6a6a6a'
-    border = '#888'
-  }
+  // 콘텐츠 노드
+  const label = data.label as string
+  const isUnlocked = data.isUnlocked as boolean
+  const showLabel = zoom >= LABEL_ZOOM_THRESHOLD
 
   return (
     <div className="relative flex flex-col items-center justify-center">
       <Handle type="target" position={Position.Top} style={centerHandleStyle} isConnectable={false} />
+
+      {/* 도트 */}
       <div
-        className="flex h-5 w-5 items-center justify-center rounded-full transition-all"
+        className="rounded-full transition-colors"
         style={{
-          backgroundColor: bg,
-          border: `1px solid ${border}`,
-          cursor: status === 'locked' ? 'default' : 'pointer',
+          width: 10,
+          height: 10,
+          backgroundColor: isUnlocked ? '#ffffff' : '#555555',
+          boxShadow: isUnlocked ? '0 0 6px rgba(255,255,255,0.6)' : 'none',
         }}
-      >
-        {isUnlocked && <Check size={11} strokeWidth={3} className="text-black" />}
-      </div>
-      <div
-        className={`absolute top-6 whitespace-pre text-center font-pixel text-sm tracking-wider leading-tight ${
-          isUnlocked ? 'text-white' : 'text-white/40'
-        }`}
-      >
-        {label}
-      </div>
+      />
+
+      {/* 제목 — 줌 임계값 이상일 때만 표시 */}
+      {showLabel && (
+        <div
+          className="absolute top-4 left-1/2 -translate-x-1/2 whitespace-pre text-center font-pixel text-[14px] leading-tight tracking-wider"
+          style={{ color: isUnlocked ? '#ffffff' : 'rgba(255,255,255,0.3)' }}
+        >
+          {label}
+        </div>
+      )}
+
       <Handle type="source" position={Position.Bottom} style={centerHandleStyle} isConnectable={false} />
     </div>
   )
