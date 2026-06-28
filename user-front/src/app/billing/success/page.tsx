@@ -25,18 +25,19 @@ function BillingSuccessContent() {
     startedRef.current = true
     ;(async () => {
       try {
+        console.log('[billing/success] POST /api/billing/issue', { mode, customerKey: customerKey.slice(0, 8) })
         const res = await fetch('/api/billing/issue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ authKey, customerKey, mode }),
         })
-        if (!res.ok) {
-          const d = await res.json()
-          throw new Error(d.error || '구독 등록에 실패했습니다.')
-        }
+        const d = await res.json().catch(() => ({}))
+        console.log('[billing/success] issue response', res.status, d)
+        if (!res.ok) throw new Error(d.error || '구독 등록에 실패했습니다.')
         await refreshUser() // 구독 상태(subscribedUntil) 즉시 반영
         router.replace('/')
       } catch (e) {
+        console.error('[billing/success] error', e)
         setError((e as Error).message)
       }
     })()
