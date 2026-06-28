@@ -2,11 +2,13 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 // 카드 등록(빌링 인증) 성공 콜백 → /api/billing/issue(빌링키 발급 + 첫 청구/변경) → 인트로로.
 function BillingSuccessContent() {
   const sp = useSearchParams()
   const router = useRouter()
+  const { refreshUser } = useAuth()
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -29,6 +31,7 @@ function BillingSuccessContent() {
           const d = await res.json()
           throw new Error(d.error || '구독 등록에 실패했습니다.')
         }
+        await refreshUser() // 구독 상태(subscribedUntil) 즉시 반영
         if (!cancelled) router.replace('/')
       } catch (e) {
         if (!cancelled) setError((e as Error).message)
@@ -37,7 +40,7 @@ function BillingSuccessContent() {
     return () => {
       cancelled = true
     }
-  }, [sp, router])
+  }, [sp, router, refreshUser])
 
   if (error) {
     return (
