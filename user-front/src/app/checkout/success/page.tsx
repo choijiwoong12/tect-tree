@@ -2,15 +2,13 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import { useAuth } from '@/components/auth/AuthProvider'
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { refreshUser } = useAuth()
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-  const [errorMessage, setErrorMessage] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const paymentKey = searchParams.get('paymentKey')
@@ -18,90 +16,59 @@ function CheckoutSuccessContent() {
     const amount = searchParams.get('amount')
 
     if (!paymentKey || !orderId || !amount) {
-      setStatus('error')
-      setErrorMessage('결제 인증 정보가 올바르지 않습니다.')
+      setError('결제 인증 정보가 올바르지 않습니다.')
       return
     }
 
-    const confirmPayment = async () => {
+    let cancelled = false
+    ;(async () => {
       try {
-        // Since we need userId, wait, our Next.js API Route for confirm expects `userId`!
-        // But how do we get userId? We should fetch the current user's session first!
         const { createClient } = await import('@/lib/supabase/client')
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
-
-        if (!user) {
-          throw new Error('인증 세션이 만료되었습니다. 다시 로그인해주세요.')
-        }
+        if (!user) throw new Error('인증 세션이 만료되었습니다. 다시 로그인해주세요.')
 
         const res = await fetch('/api/payments/confirm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentKey,
-            orderId,
-            amount: Number(amount),
-            userId: user.id
-          })
+          body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), userId: user.id }),
         })
-
         if (!res.ok) {
           const errData = await res.json()
           throw new Error(errData.error || errData.message || '결제 승인에 실패했습니다.')
         }
 
-        // Pull the freshly-credited RP balance into the app state.
         await refreshUser()
-        setStatus('success')
-      } catch (err: any) {
-        setStatus('error')
-        setErrorMessage(err.message)
+        // 성공 → 별도 완료 화면 없이 인트로(메인)로.
+        if (!cancelled) router.replace('/')
+      } catch (err) {
+        if (!cancelled) setError((err as Error).message)
       }
+    })()
+
+    return () => {
+      cancelled = true
     }
+  }, [searchParams, refreshUser, router])
 
-    confirmPayment()
-  }, [searchParams, refreshUser])
+  if (error) {
+    return (
+      <main className="mx-auto max-w-[600px] px-6 py-10 text-center text-white">
+        <h1 className="mb-2 text-lg text-red-400">결제 실패</h1>
+        <p className="mb-6 text-sm text-white/70">{error}</p>
+        <button onClick={() => router.replace('/')} className="rounded bg-white/10 px-5 py-2 text-sm">
+          홈으로
+        </button>
+      </main>
+    )
+  }
 
-  return (
-    <main style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem', textAlign: 'center' }}>
-      {status === 'loading' && (
-        <>
-          <h1>결제 승인 중입니다...</h1>
-          <p>창을 닫거나 새로고침하지 마세요.</p>
-        </>
-      )}
-
-      {status === 'success' && (
-        <>
-          <h1 style={{ color: 'green' }}>결제가 완료되었습니다! 🎉</h1>
-          <p>주문번호: {searchParams.get('orderId')}</p>
-          <div style={{ marginTop: '2rem' }}>
-            <Link href="/" style={{ padding: '10px 20px', background: '#eee', borderRadius: '8px' }}>
-              홈으로 가기
-            </Link>
-          </div>
-        </>
-      )}
-
-      {status === 'error' && (
-        <>
-          <h1 style={{ color: 'red' }}>결제 실패</h1>
-          <p>{errorMessage}</p>
-          <div style={{ marginTop: '2rem' }}>
-            <button onClick={() => router.push('/checkout')} style={{ padding: '10px 20px' }}>
-              다시 시도하기
-            </button>
-          </div>
-        </>
-      )}
-    </main>
-  )
+  return <main className="px-6 py-10 text-center text-sm text-white/60">결제 확인 중입니다...</main>
 }
 
 export default function CheckoutSuccessPage() {
   return (
-    <Suspense fallback={<main style={{ textAlign: 'center', padding: '2rem' }}><p>로딩 중...</p></main>}>
+    <Suspense fallback={<main className="px-6 py-10 text-center text-sm text-white/60">로딩 중...</main>}>
       <CheckoutSuccessContent />
     </Suspense>
   )
