@@ -6,15 +6,26 @@ import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
 import type { User } from "@/types/api";
 
-// users 테이블 프로필 + auth user_metadata(이름/콜사인)를 합쳐 User로.
-// (users 테이블에 name/callsign 컬럼이 없어도 동작하도록 metadata에 저장)
-function mergeProfile(profile: unknown, session: Session): User | null {
+// users 테이블 프로필 + auth user_metadata(이름/콜사인) + subscriptions(구독 만료일)을 합쳐 User로.
+// (users 테이블에 name/callsign 컬럼이 없어도 동작하도록 metadata에 저장. subscriptions 없으면 구독 null)
+async function loadUser(
+  supabase: ReturnType<typeof createClient>,
+  session: Session,
+): Promise<User | null> {
+  const { data: profile } = await supabase.from("users").select("*").eq("id", session.user.id).single();
   if (!profile) return null;
+  const { data: subs } = await supabase
+    .from("subscriptions")
+    .select("next_billing_date")
+    .eq("user_id", session.user.id)
+    .order("next_billing_date", { ascending: false })
+    .limit(1);
   const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
   return {
     ...(profile as User),
     name: (meta.name as string | undefined) || undefined,
     callsign: (meta.callsign as string | undefined) || undefined,
+    subscribedUntil: (subs?.[0]?.next_billing_date as string | undefined) ?? null,
   };
 }
 
@@ -67,14 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const { data: profile } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-
+        const merged = await loadUser(supabase, session);
         if (mounted) {
-          setUser(mergeProfile(profile, session));
+          setUser(merged);
           setLoading(false);
         }
       } catch (err) {
@@ -94,14 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         try {
           if (session) {
-            const { data: profile, error } = await supabase
-              .from("users")
-              .select("*")
-              .eq("id", session.user.id)
-              .single();
-            if (mounted) {
-              setUser(!error ? mergeProfile(profile, session) : null);
-            }
+            const merged = await loadUser(supabase, session);
+            if (mounted) setUser(merged);
           } else {
             if (mounted) setUser(null);
           }
@@ -129,12 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       return;
     }
-    const { data: profile } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", session.user.id)
-      .single();
-    setUser(mergeProfile(profile, session));
+    setUser(await loadUser(supabase, session));
   }, [supabase]);
 
   const login = useCallback(async (email: string, password: string) => {

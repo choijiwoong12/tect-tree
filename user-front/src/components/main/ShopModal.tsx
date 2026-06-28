@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DesignOverlay } from "@/components/common/DesignOverlay";
+import { requestCardRegistration } from "@/lib/billing/client";
 import { RP_PACKAGES, SUBSCRIPTION_PRICE, SUBSCRIPTION_GUIDE, RP_GUIDE } from "@/content/shop";
 
 // 프레임: 메인화면 (SHOP 모달) — 트리 위 라이트 박스(딤 없음). 가로중앙(박스중심 ≈ X960) 상단 Y90.
@@ -25,9 +26,9 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
       setView("guide");
       return;
     }
-    // 안내 → Toss 결제창. (페이지 이동 — Toss 제공 UI 노출)
+    // RP: 단건 결제(/checkout). 구독: Toss 빌링 카드 등록(requestBillingAuth) → 첫 달 청구.
     if (selected.kind === "rp") router.push(`/checkout?kind=rp&rp=${selected.rp}`);
-    else router.push(`/checkout?kind=subscription`);
+    else requestCardRegistration("new").catch((e) => alert((e as Error).message));
   }
 
   const guide = selected?.kind === "subscription" ? SUBSCRIPTION_GUIDE : RP_GUIDE;

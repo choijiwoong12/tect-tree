@@ -4,6 +4,7 @@ export interface User {
   nickname: string;
   name?: string; // 회원가입 입력 이름 (auth user_metadata)
   callsign?: string; // 콜사인 (auth user_metadata)
+  subscribedUntil?: string | null; // 구독 혜택 만료일(subscriptions.next_billing_date). 지나지 않았으면 구독중
   rp_balance: number;
   profile_image_url: string | null;
   created_at: string;

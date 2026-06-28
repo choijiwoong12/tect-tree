@@ -30,7 +30,8 @@ export function InfoPanel({
   // 로그인 + 토글 off → 패널 숨김
   if (user && !showMember) return null;
 
-  const subscribed = false; // TODO: 실제 구독 상태 연동
+  // 구독중 = 구독 만료일(next_billing_date)이 아직 안 지남 (해지했어도 만료 전이면 유지)
+  const subscribed = !!user?.subscribedUntil && new Date(user.subscribedUntil).getTime() > Date.now();
   const onSubscriptionClick = subscribed ? onOpenSubscriptionManage : onOpenShop;
 
   return (
@@ -44,6 +45,7 @@ export function InfoPanel({
       {user ? (
         <MemberInfo
           user={user}
+          subscribed={subscribed}
           onEditCallsign={onEditCallsign}
           onOpenCustomerService={onOpenCustomerService}
           onOpenNotice={onOpenNotice}
@@ -75,6 +77,7 @@ function BusinessInfo() {
 
 function MemberInfo({
   user,
+  subscribed,
   onEditCallsign,
   onOpenCustomerService,
   onOpenNotice,
@@ -82,6 +85,7 @@ function MemberInfo({
   onLogout,
 }: {
   user: User;
+  subscribed?: boolean;
   onEditCallsign?: () => void;
   onOpenCustomerService?: () => void;
   onOpenNotice?: () => void;
@@ -122,7 +126,7 @@ function MemberInfo({
         <span className="inline-block w-[112px]">RP</span>: {rp}
       </div>
       <button onClick={onSubscriptionClick} className="absolute left-0 top-[169px] text-left transition-colors hover:text-white/70">
-        MONTHLY SUBSCRIPTION OFF
+        MONTHLY SUBSCRIPTION {subscribed ? "ON" : "OFF"}
       </button>
 
       {/* 하단 버튼 — 디자인 정확값. NOTICE/LOG OUT은 자간으로 W216 채움 */}
