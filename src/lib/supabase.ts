@@ -88,6 +88,30 @@ export async function searchNodes(query: string): Promise<DocumentNode[]> {
   return data ?? [];
 }
 
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+export interface GraphViewport { x: number; y: number; zoom: number }
+
+export async function fetchGraphViewport(): Promise<GraphViewport | null> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "graph_viewport")
+    .single();
+  if (error) return null;
+  return data?.value as GraphViewport ?? null;
+}
+
+export async function saveGraphViewport(viewport: GraphViewport): Promise<void> {
+  const { error } = await supabase
+    .from("settings")
+    .upsert(
+      { key: "graph_viewport", value: viewport, updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    );
+  if (error) throw error;
+}
+
 // ─── Announcements ───────────────────────────────────────────────────────────
 
 export async function fetchAnnouncements(): Promise<Announcement[]> {

@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useLayoutEffect, useEffect } from "react
 import { ZoomIn, ZoomOut, Maximize2, Info, Search, X } from "lucide-react";
 import clsx from "clsx";
 import type { DocumentNode } from "@/lib/types";
+import { fetchGraphViewport, saveGraphViewport } from "@/lib/supabase";
 
 interface Props {
   nodes: DocumentNode[];
@@ -53,6 +54,9 @@ export default function GraphView({ nodes, onSelectNode }: Props) {
   const [zoom, setZoom] = useState(1);
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
+  const panRef = useRef({ x: 0, y: 0 });
+  const zoomRef = useRef(1);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -70,11 +74,36 @@ export default function GraphView({ nodes, onSelectNode }: Props) {
     return () => ro.disconnect();
   }, []);
 
+  // 저장된 viewport 로드
+  useEffect(() => {
+    fetchGraphViewport().then((v) => {
+      if (!v) return;
+      setPan({ x: v.x, y: v.y });
+      setZoom(v.zoom);
+      panRef.current = { x: v.x, y: v.y };
+      zoomRef.current = v.zoom;
+    });
+  }, []);
+
+  // pan/zoom → ref 동기화 (클로저 없이 save 함수에서 최신값 읽기 위해)
+  useEffect(() => { panRef.current = pan; }, [pan]);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  function scheduleSave() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveGraphViewport({ x: panRef.current.x, y: panRef.current.y, zoom: zoomRef.current });
+    }, 600);
+  }
+
   const absPositions = computeAbsPositions(nodes);
 
   function resetView() {
     setPan({ x: 0, y: 0 });
     setZoom(1);
+    panRef.current = { x: 0, y: 0 };
+    zoomRef.current = 1;
+    saveGraphViewport({ x: 0, y: 0, zoom: 1 });
   }
 
   function centerOnNode(node: DocumentNode) {
@@ -110,6 +139,8 @@ export default function GraphView({ nodes, onSelectNode }: Props) {
       }));
       return next;
     });
+    scheduleSave();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleMouseDown(e: React.MouseEvent) {
@@ -127,6 +158,7 @@ export default function GraphView({ nodes, onSelectNode }: Props) {
   }
 
   function handleMouseUp() {
+    if (dragStart.current) scheduleSave();
     dragStart.current = null;
     setDragging(false);
   }
