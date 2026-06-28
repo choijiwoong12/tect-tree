@@ -2,12 +2,12 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { loadPaymentWidget, PaymentWidgetInstance } from '@tosspayments/payment-widget-sdk'
+import { loadTossPayments, ANONYMOUS } from '@tosspayments/tosspayments-sdk'
 import { RP_PACKAGES, SUBSCRIPTION_PRICE } from '@/content/shop'
 import { createOrder, type OrderInput } from './actions'
 
-// SHOP 모달의 ( > )(결제) → 이 페이지로 이동. kind=rp&rp=5000 또는 kind=subscription.
-// 쿼리로 상품을 식별해 Toss 결제 위젯을 띄움. 금액·RP 지급은 서버(createOrder)에서 DB 기준으로 확정.
+// SHOP 모달의 ( > )(결제) → 이 페이지로 이동. kind=rp&rp=5000.
+// 결제위젯(gck 키)은 신규 SDK(tosspayments-sdk)의 widgets()로 띄운다. 금액·RP 지급은 서버에서 확정.
 function resolveProduct(kind: string | null, rp: number): OrderInput | null {
   if (kind === 'subscription') {
     return { code: 'SUBSCRIPTION_MONTHLY', name: '월간 구독', price: SUBSCRIPTION_PRICE, rpAmount: 0 }
@@ -25,6 +25,8 @@ function resolveProduct(kind: string | null, rp: number): OrderInput | null {
   return null
 }
 
+type Widgets = ReturnType<Awaited<ReturnType<typeof loadTossPayments>>['widgets']>
+
 function CheckoutContent() {
   const searchParams = useSearchParams()
   const product = useMemo(
@@ -32,8 +34,9 @@ function CheckoutContent() {
     [searchParams],
   )
 
-  const paymentWidgetRef = useRef<PaymentWidgetInstance | null>(null)
-  const loadedRef = useRef(false)
+  const widgetsRef = useRef<Widgets | null>(null)
+  const initRef = useRef(false)
+  const [ready, setReady] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -47,16 +50,20 @@ function CheckoutContent() {
       setError('Toss 클라이언트 키가 설정되지 않았습니다.')
       return
     }
-    if (loadedRef.current) return
-    loadedRef.current = true
+    if (initRef.current) return
+    initRef.current = true
 
     ;(async () => {
       try {
-        const customerKey = Math.random().toString(36).substring(2, 11)
-        const widget = await loadPaymentWidget(clientKey, customerKey)
-        widget.renderPaymentMethods('#payment-widget', { value: product.price })
-        widget.renderAgreement('#agreement')
-        paymentWidgetRef.current = widget
+        const tossPayments = await loadTossPayments(clientKey)
+        const widgets = tossPayments.widgets({ customerKey: ANONYMOUS })
+        await widgets.setAmount({ currency: 'KRW', value: product.price })
+        await Promise.all([
+          widgets.renderPaymentMethods({ selector: '#payment-widget' }),
+          widgets.renderAgreement({ selector: '#agreement' }),
+        ])
+        widgetsRef.current = widgets
+        setReady(true)
       } catch (err) {
         setError('결제 위젯을 불러오지 못했습니다: ' + (err as Error).message)
       }
@@ -65,13 +72,16 @@ function CheckoutContent() {
 
   async function handlePayment() {
     if (!product) return
+    const widgets = widgetsRef.current
+    if (!widgets) {
+      setError('결제 위젯이 아직 준비되지 않았습니다.')
+      return
+    }
     setLoading(true)
     setError('')
     try {
       const order = await createOrder(product)
-      const widget = paymentWidgetRef.current
-      if (!widget) throw new Error('결제 위젯이 초기화되지 않았습니다.')
-      await widget.requestPayment({
+      await widgets.requestPayment({
         orderId: order.orderId,
         orderName: order.orderName,
         customerName: order.customerName,
@@ -99,10 +109,10 @@ function CheckoutContent() {
 
       <button
         onClick={handlePayment}
-        disabled={loading || !product}
+        disabled={loading || !ready || !product}
         className="mt-4 w-full rounded-lg bg-[#3182f6] py-4 text-lg text-white disabled:opacity-50"
       >
-        {loading ? '결제 준비 중...' : product ? `${product.price.toLocaleString()}원 결제하기` : '상품 없음'}
+        {loading ? '결제 준비 중...' : !ready ? '결제 위젯 불러오는 중...' : product ? `${product.price.toLocaleString()}원 결제하기` : '상품 없음'}
       </button>
     </main>
   )
