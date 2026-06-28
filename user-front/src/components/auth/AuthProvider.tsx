@@ -12,15 +12,30 @@ async function loadUser(
   supabase: ReturnType<typeof createClient>,
   session: Session,
 ): Promise<User | null> {
+  const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
   const { data: profile } = await supabase.from("users").select("*").eq("id", session.user.id).single();
-  if (!profile) return null;
+
+  // DB row가 아직 없으면(첫 로그인 직후 replication lag 등) 세션 데이터로 fallback
+  if (!profile) {
+    return {
+      id: session.user.id,
+      email: session.user.email ?? '',
+      nickname: (meta.nickname as string | undefined) ?? (meta.name as string | undefined) ?? session.user.email?.split('@')[0] ?? 'user',
+      name: (meta.name as string | undefined) || undefined,
+      callsign: (meta.callsign as string | undefined) || undefined,
+      rp_balance: 0,
+      profile_image_url: (meta.avatar_url ?? meta.picture ?? null) as string | null,
+      created_at: session.user.created_at,
+      subscribedUntil: null,
+    };
+  }
+
   const { data: subs } = await supabase
     .from("subscriptions")
     .select("next_billing_date")
     .eq("user_id", session.user.id)
     .order("next_billing_date", { ascending: false })
     .limit(1);
-  const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
   return {
     ...(profile as User),
     name: (meta.name as string | undefined) || undefined,
