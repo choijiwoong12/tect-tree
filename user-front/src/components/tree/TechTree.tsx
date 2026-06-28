@@ -69,6 +69,7 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
           onCenterClick={() => setShowMember((v) => !v)}
           onOpenShop={() => setModal('shop')}
           onContentNodeClick={handleContentNodeClick}
+          sessionUnlockedIds={unlockedIds}
         />
       </ReactFlowProvider>
 

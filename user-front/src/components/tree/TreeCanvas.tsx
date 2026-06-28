@@ -67,9 +67,10 @@ interface TreeCanvasProps {
   onCenterClick?: () => void
   onOpenShop?: () => void
   onContentNodeClick?: (info: ContentNodeInfo) => void
+  sessionUnlockedIds?: Set<number>
 }
 
-export function TreeCanvas({ isLoggedIn, rootLabel, onLoginClick, onCenterClick, onContentNodeClick }: TreeCanvasProps) {
+export function TreeCanvas({ isLoggedIn, rootLabel, onLoginClick, onCenterClick, onContentNodeClick, sessionUnlockedIds }: TreeCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const { setViewport } = useReactFlow()
@@ -140,6 +141,21 @@ export function TreeCanvas({ isLoggedIn, rootLabel, onLoginClick, onCenterClick,
     loadNodes()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, rootLabel, setNodes, setEdges, setViewport])
+
+  // 세션 중 해금된 노드의 시각 상태를 즉시 업데이트 (흰 점으로 변경)
+  useEffect(() => {
+    if (!sessionUnlockedIds || sessionUnlockedIds.size === 0) return
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.data.isRoot) return n
+        const nodeId = Number(n.id)
+        if (sessionUnlockedIds.has(nodeId) && !n.data.isUnlocked) {
+          return { ...n, data: { ...n.data, isUnlocked: true } }
+        }
+        return n
+      }),
+    )
+  }, [sessionUnlockedIds, setNodes])
 
   const onNodeClick = useCallback(
     (_e: React.MouseEvent, node: Node) => {
