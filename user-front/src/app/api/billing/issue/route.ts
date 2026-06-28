@@ -5,8 +5,9 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 const SUBSCRIPTION_AMOUNT = 33000
 
 function tossAuthHeader() {
-  const secret = process.env.TOSS_SECRET_KEY
-  if (!secret) throw new Error('TOSS_SECRET_KEY가 설정되지 않았습니다.')
+  // 빌링 API는 'API 개별 연동' 시크릿 키 사용(결제위젯 시크릿과 별도)
+  const secret = process.env.TOSS_BILLING_SECRET_KEY
+  if (!secret) throw new Error('TOSS_BILLING_SECRET_KEY(API 개별 연동 시크릿)가 설정되지 않았습니다.')
   return `Basic ${Buffer.from(`${secret}:`).toString('base64')}`
 }
 

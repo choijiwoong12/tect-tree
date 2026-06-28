@@ -10,8 +10,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const secret = process.env.TOSS_SECRET_KEY
-  if (!secret) return NextResponse.json({ error: 'TOSS_SECRET_KEY 없음' }, { status: 500 })
+  const secret = process.env.TOSS_BILLING_SECRET_KEY
+  if (!secret) return NextResponse.json({ error: 'TOSS_BILLING_SECRET_KEY 없음' }, { status: 500 })
   const auth = `Basic ${Buffer.from(`${secret}:`).toString('base64')}`
 
   const nowIso = new Date().toISOString()

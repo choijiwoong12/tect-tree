@@ -13,8 +13,9 @@ export async function requestCardRegistration(mode: "new" | "change" = "new") {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
-  const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
-  if (!clientKey) throw new Error("Toss 클라이언트 키가 설정되지 않았습니다.");
+  // 빌링은 'API 개별 연동 키'를 써야 함(결제위젯 키는 미지원). RP 단건결제 키와 별도.
+  const clientKey = process.env.NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY;
+  if (!clientKey) throw new Error("빌링용 Toss 클라이언트 키(API 개별 연동)가 설정되지 않았습니다.");
 
   const tossPayments = await loadTossPayments(clientKey);
   const payment = tossPayments.payment({ customerKey: user.id });
