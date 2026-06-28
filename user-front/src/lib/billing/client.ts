@@ -21,7 +21,8 @@ export async function requestCardRegistration(mode: "new" | "change" = "new") {
   const payment = tossPayments.payment({ customerKey: user.id });
   await payment.requestBillingAuth({
     method: "CARD",
-    successUrl: `${window.location.origin}/billing/success?mode=${mode}`,
+    // 서버 콜백에서 빌링키 발급/청구/구독저장 후 '/'로 리다이렉트
+    successUrl: `${window.location.origin}/api/billing/callback?mode=${mode}`,
     failUrl: `${window.location.origin}/billing/fail`,
     customerEmail: user.email ?? undefined,
   });

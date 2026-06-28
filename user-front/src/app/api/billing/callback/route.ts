@@ -2,32 +2,35 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
+// 빌링 인증 콜백(서버) — Toss가 카드 등록 성공 시 이 GET으로 리다이렉트.
+// authKey → billingKey 발급 → (new) 첫 달 청구 + 구독 생성 / (change) 빌링키 교체 → '/'로 리다이렉트.
+// 클라 fetch 없이 서버에서 처리(콜백 정석) → 풀 리로드라 AuthProvider가 구독 상태 새로 읽음.
 const SUBSCRIPTION_AMOUNT = 33000
-const TAG = '[billing/issue]'
+const TAG = '[billing/callback]'
 
 function tossAuthHeader() {
-  // 빌링 API는 'API 개별 연동' 시크릿 키 사용(결제위젯 시크릿과 별도)
   const secret = process.env.TOSS_BILLING_SECRET_KEY
   if (!secret) throw new Error('TOSS_BILLING_SECRET_KEY(API 개별 연동 시크릿)가 설정되지 않았습니다.')
   return `Basic ${Buffer.from(`${secret}:`).toString('base64')}`
 }
 
-// 빌링 인증 성공(authKey) → billingKey 발급 → 구독 저장.
-// mode 'new': 첫 달 즉시 청구 + active 구독 생성. mode 'change': 기존 active의 billing_key만 교체(청구 없음).
-export async function POST(request: Request) {
-  try {
-    const { authKey, customerKey, mode = 'new' } = await request.json()
-    console.log(TAG, 'start mode=%s customerKey=%s authKey=%s', mode, String(customerKey).slice(0, 8), String(authKey).slice(0, 8))
-    if (!authKey || !customerKey) {
-      return NextResponse.json({ error: '필수 값 누락' }, { status: 400 })
-    }
+export async function GET(request: Request) {
+  const url = new URL(request.url)
+  const fail = (msg: string) =>
+    NextResponse.redirect(new URL(`/billing/fail?message=${encodeURIComponent(msg)}`, url.origin))
 
-    // 세션 유저 == customerKey 검증
+  try {
+    const authKey = url.searchParams.get('authKey')
+    const customerKey = url.searchParams.get('customerKey')
+    const mode = url.searchParams.get('mode') || 'new'
+    console.log(TAG, 'start mode=%s customerKey=%s authKey=%s', mode, String(customerKey).slice(0, 8), String(authKey).slice(0, 8))
+    if (!authKey || !customerKey) return fail('인증 정보 누락')
+
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || user.id !== customerKey) {
-      console.error(TAG, 'auth mismatch: sessionUser=%s customerKey=%s', user?.id?.slice(0, 8) ?? 'none', String(customerKey).slice(0, 8))
-      return NextResponse.json({ error: '세션/사용자 불일치(권한 없음)' }, { status: 403 })
+      console.error(TAG, 'auth mismatch session=%s customer=%s', user?.id?.slice(0, 8) ?? 'none', String(customerKey).slice(0, 8))
+      return fail('세션/사용자 불일치')
     }
 
     const auth = tossAuthHeader()
@@ -41,23 +44,25 @@ export async function POST(request: Request) {
     const issueData = await issueRes.json()
     if (!issueRes.ok) {
       console.error(TAG, 'billingKey 발급 실패', issueRes.status, issueData)
-      return NextResponse.json({ error: `빌링키 발급 실패: ${issueData.message ?? issueData.code ?? ''}`, details: issueData }, { status: 400 })
+      return fail(`빌링키 발급 실패: ${issueData.message ?? issueData.code ?? ''}`)
     }
     const billingKey = issueData.billingKey as string
     console.log(TAG, 'billingKey 발급 OK')
 
-    // 결제수단 변경: 기존 active 구독의 billing_key만 교체(청구 X)
+    const nowIso = new Date().toISOString()
+
+    // 결제수단 변경: 기존 active의 billing_key만 교체(청구 X)
     if (mode === 'change') {
       const { error } = await supabaseAdmin
         .from('subscriptions')
-        .update({ billing_key: billingKey, updated_at: new Date().toISOString() })
+        .update({ billing_key: billingKey, updated_at: nowIso })
         .eq('user_id', customerKey)
         .eq('status', 'active')
       if (error) {
         console.error(TAG, 'change 실패', error.message)
-        return NextResponse.json({ error: '결제수단 변경 실패', details: error.message }, { status: 500 })
+        return fail(`결제수단 변경 실패: ${error.message}`)
       }
-      return NextResponse.json({ success: true, changed: true })
+      return NextResponse.redirect(new URL('/', url.origin))
     }
 
     // 신규 구독: 첫 달 즉시 청구
@@ -76,17 +81,15 @@ export async function POST(request: Request) {
     const chargeData = await chargeRes.json()
     if (!chargeRes.ok) {
       console.error(TAG, '첫 결제 실패', chargeRes.status, chargeData)
-      return NextResponse.json({ error: `첫 결제 실패: ${chargeData.message ?? chargeData.code ?? ''}`, details: chargeData }, { status: 400 })
+      return fail(`첫 결제 실패: ${chargeData.message ?? chargeData.code ?? ''}`)
     }
     console.log(TAG, '첫 결제 OK')
 
-    // 기존 active 정리 후 신규 active 생성 (다음 청구일 = +1개월)
-    const now = new Date()
-    const next = new Date(now)
+    const next = new Date()
     next.setMonth(next.getMonth() + 1)
     await supabaseAdmin
       .from('subscriptions')
-      .update({ status: 'canceled', canceled_at: now.toISOString() })
+      .update({ status: 'canceled', canceled_at: nowIso })
       .eq('user_id', customerKey)
       .eq('status', 'active')
 
@@ -96,19 +99,19 @@ export async function POST(request: Request) {
       customer_key: customerKey,
       status: 'active',
       amount: SUBSCRIPTION_AMOUNT,
-      started_at: now.toISOString(),
+      started_at: nowIso,
       next_billing_date: next.toISOString(),
-      last_charged_at: now.toISOString(),
+      last_charged_at: nowIso,
     })
     if (insErr) {
       console.error(TAG, '구독 insert 실패', insErr.message)
-      return NextResponse.json({ error: `구독 저장 실패: ${insErr.message}`, details: insErr.message }, { status: 500 })
+      return fail(`구독 저장 실패: ${insErr.message}`)
     }
 
     console.log(TAG, 'DONE — subscription created')
-    return NextResponse.json({ success: true })
+    return NextResponse.redirect(new URL('/', url.origin))
   } catch (e) {
     console.error(TAG, 'exception', (e as Error).message)
-    return NextResponse.json({ error: 'Internal Server Error', message: (e as Error).message }, { status: 500 })
+    return fail((e as Error).message)
   }
 }
