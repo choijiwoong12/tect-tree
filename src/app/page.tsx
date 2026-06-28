@@ -10,6 +10,7 @@ import NodePositionPicker from "@/components/NodePositionPicker";
 import GraphView from "@/components/GraphView";
 import Dashboard from "@/components/Dashboard";
 import LoginPage from "@/components/LoginPage";
+import AnnouncementManager from "@/components/AnnouncementManager";
 import type { DocumentNode } from "@/lib/types";
 import {
   supabase,
@@ -21,7 +22,7 @@ import {
 } from "@/lib/supabase";
 import { AlertTriangle } from "lucide-react";
 
-type Tab = "dashboard" | "graph" | "nodes" | "search" | "settings";
+type Tab = "dashboard" | "graph" | "nodes" | "search" | "settings" | "announcements";
 
 export default function AdminPage() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -174,6 +175,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
               {tab === "nodes" && "노드 관리"}
               {tab === "search" && "노드 검색"}
               {tab === "settings" && "설정"}
+              {tab === "announcements" && "공지사항 관리"}
             </h1>
             <p className="text-xs text-gray-400">
               {tab === "dashboard" && "전체 현황"}
@@ -181,6 +183,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
               {tab === "nodes" && `${nodes.length}개 노드`}
               {tab === "search" && "노드 검색"}
               {tab === "settings" && "시스템 설정"}
+              {tab === "announcements" && "공지 추가 · 편집 · 순서 변경"}
             </p>
           </div>
 
@@ -239,6 +242,8 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
               onStartReposition={(node) => setRepositioningNode(node)}
             />
           )}
+
+          {tab === "announcements" && <AnnouncementManager />}
 
           {tab === "settings" && (
             <div className="flex-1 overflow-y-auto p-6 bg-[#F5F7FA]">

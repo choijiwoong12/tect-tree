@@ -26,3 +26,13 @@ export interface NodeTreeItem extends DocumentNode {
   children: NodeTreeItem[];
   depth?: number;
 }
+
+export interface Announcement {
+  id: number;
+  title: string;
+  content: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
