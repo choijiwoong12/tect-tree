@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 
@@ -9,6 +9,7 @@ function BillingSuccessContent() {
   const sp = useSearchParams()
   const router = useRouter()
   const { refreshUser } = useAuth()
+  const startedRef = useRef(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -19,7 +20,9 @@ function BillingSuccessContent() {
       setError('인증 정보가 올바르지 않습니다.')
       return
     }
-    let cancelled = false
+    // authKey는 1회용 → StrictMode 이중 호출 방지(한 번만 실행)
+    if (startedRef.current) return
+    startedRef.current = true
     ;(async () => {
       try {
         const res = await fetch('/api/billing/issue', {
@@ -32,14 +35,11 @@ function BillingSuccessContent() {
           throw new Error(d.error || '구독 등록에 실패했습니다.')
         }
         await refreshUser() // 구독 상태(subscribedUntil) 즉시 반영
-        if (!cancelled) router.replace('/')
+        router.replace('/')
       } catch (e) {
-        if (!cancelled) setError((e as Error).message)
+        setError((e as Error).message)
       }
     })()
-    return () => {
-      cancelled = true
-    }
   }, [sp, router, refreshUser])
 
   if (error) {
