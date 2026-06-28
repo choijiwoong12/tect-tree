@@ -2,6 +2,7 @@
 
 import type { User } from "@/types/api";
 import { BUSINESS_INFO } from "@/content/business";
+import { formatCallsign } from "@/lib/callsign/data";
 
 // 좌하단 정보 패널 — 디자인: 회원정보 X46 Y729 W263 H292 (1920 프레임, DesignOverlay가 스케일).
 // - 로그인 전: 사업자 정보(표시의무).
@@ -81,9 +82,12 @@ function MemberInfo({
   onSubscriptionClick?: () => void;
   onLogout?: () => void;
 }) {
-  // 콜사인-이름 형태로 표시(둘 다 있으면 "콜사인-이름", 하나만 있으면 그것, 없으면 닉네임).
+  // 콜사인-이름 — 콜사인은 표시용으로 재배열("AEE11" → "EE-A11"). 예: "EE-A11-GODOT".
   // TODO: 등급/직전노드/진행률/구독상태는 users 스키마 확장 + 노드 연동 후 실제 값으로.
-  const display = [user.callsign, user.name].filter(Boolean).join("-") || user.nickname || "YOU";
+  const display =
+    [user.callsign ? formatCallsign(user.callsign) : null, user.name].filter(Boolean).join("-") ||
+    user.nickname ||
+    "YOU";
   const rp = (user.rp_balance ?? 0).toLocaleString();
   // 박스(X46 Y729) 기준 절대좌표. 하단 버튼은 디자인 정확값: CS top212(Y941), NOTICE top231(Y960), LOG OUT top271(Y1000), W216.
   // 상단 정보 Y는 패널 미제공 → 행피치 19 / 그룹간격 43으로 버튼과 정렬되게 추정.

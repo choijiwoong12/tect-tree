@@ -187,3 +187,10 @@ export function buildCallSign(
 ): string {
   return `${alphabet}${jobCode}${level}${achievement}`;
 }
+
+// 표시용 콜사인 — 저장형 "AEE11"(알파벳1+직업2+수준1+성취1)을
+// "EE-A11"(직업2 - 알파벳1 숫자2) 순서로 재배열. 회원정보 표기에 사용.
+export function formatCallsign(raw?: string): string {
+  if (!raw || raw.length < 5) return raw ?? "";
+  return `${raw.slice(1, 3)}-${raw[0]}${raw.slice(3)}`;
+}

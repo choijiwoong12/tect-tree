@@ -30,7 +30,7 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
         <TreeCanvas
           themeId="main-tree"
           isLoggedIn={!!user}
-          rootLabel={user ? [user.callsign, user.name].filter(Boolean).join('-') || user.nickname || 'YOU' : undefined}
+          rootLabel={user ? [user.callsign, user.name].filter(Boolean).join(' ') || user.nickname || 'YOU' : undefined}
           onLoginClick={onLoginClick}
           onCenterClick={() => setShowMember((v) => !v)}
           onOpenShop={() => setModal('shop')}
@@ -42,7 +42,7 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
         {/* 헤더: 로고 + RP (로그아웃은 회원정보 하단으로 이동) */}
         <TopBar
           rp={user?.rp_balance ?? 0}
-          onRpClick={() => setModal('shop')}
+          onRpClick={user ? () => setModal('shop') : undefined}
         />
         <InfoPanel
           user={user}
