@@ -13,10 +13,17 @@ import { useAuth } from '@/components/auth/AuthProvider'
 type Step = 'INTRO_PLAYING' | 'MAIN_TREE' | 'SIGNUP_MODAL' | 'CALLSIGN';
 
 export default function RootPage() {
-  const { user, refreshUser } = useAuth()
+  const { user, loading, refreshUser } = useAuth()
   const [step, setStep] = useState<Step>('INTRO_PLAYING')
   const [treeVisible, setTreeVisible] = useState(false)
   const onboardingPrompted = useRef(false)
+
+  // 로그인 상태로 페이지 진입 시 인트로 스킵 → 바로 MAIN_TREE
+  useEffect(() => {
+    if (!loading && user && step === 'INTRO_PLAYING') {
+      setStep('MAIN_TREE')
+    }
+  }, [loading, user])
 
   // 인트로(올리브 드래그) 종료 후 트리를 검정에서 페이드인.
   useEffect(() => {
