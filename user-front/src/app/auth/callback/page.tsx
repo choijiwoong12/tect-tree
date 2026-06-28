@@ -37,23 +37,35 @@ function CallbackHandler() {
       return
     }
 
+    // 5초 이내에 exchange 안 끝나면 강제로 홈으로
+    const forceTimer = setTimeout(() => {
+      window.location.href = next
+    }, 5000)
+
     async function exchange() {
       try {
         const supabase = createClient()
-        const { error } = await supabase.auth.exchangeCodeForSession(code!)
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code!)
+
+        clearTimeout(forceTimer)
 
         if (error) {
+          console.error('[callback] exchangeCodeForSession error:', error.message)
           setErrorMsg(error.message)
           setTimeout(() => go(`/login?error=${encodeURIComponent(error.message)}`), 1500)
           return
         }
+
+        console.log('[callback] session ok, user:', data.session?.user?.email)
 
         // user 테이블 upsert (비동기, 실패해도 로그인 유지)
         fetch('/api/auth/upsert-profile', { method: 'POST' }).catch(() => {})
 
         go(next)
       } catch (e) {
+        clearTimeout(forceTimer)
         const msg = e instanceof Error ? e.message : 'Unknown error'
+        console.error('[callback] exception:', msg)
         setErrorMsg(msg)
         setTimeout(() => go('/'), 1500)
       }
