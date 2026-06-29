@@ -26,7 +26,7 @@ import {
   X,
 } from "lucide-react";
 import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Custom FontSize extension built on top of TextStyle
 declare module "@tiptap/core" {
@@ -112,6 +112,8 @@ function extractToc(json: { content?: JsonNode[] }): TocItem[] {
 export default function RichEditor({ content, onChange, placeholder }: RichEditorProps) {
   const [toc, setToc] = useState<TocItem[]>([]);
   const [showToc, setShowToc] = useState(false);
+  // 마지막으로 onChange에 전달한 HTML을 기억해서 불필요한 setContent 호출을 막음
+  const lastEmittedHtml = useRef<string>("");
 
   const editor = useEditor({
     extensions: [
@@ -127,7 +129,9 @@ export default function RichEditor({ content, onChange, placeholder }: RichEdito
     ],
     content,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      lastEmittedHtml.current = html;
+      onChange(html);
       setToc(extractToc(editor.getJSON()));
     },
     editorProps: {
@@ -138,7 +142,9 @@ export default function RichEditor({ content, onChange, placeholder }: RichEdito
   });
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
+    // 자신이 내보낸 HTML이 다시 content로 들어올 때는 setContent를 호출하지 않음 (커서 리셋 방지)
+    if (editor && content !== lastEmittedHtml.current && content !== editor.getHTML()) {
+      lastEmittedHtml.current = content ?? "";
       editor.commands.setContent(content ?? "");
       setToc(extractToc(editor.getJSON()));
     }

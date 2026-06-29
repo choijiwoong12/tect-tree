@@ -26,8 +26,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  ZoomIn, ZoomOut, Maximize2, Plus, X, ArrowRight, Check,
-  FileText, FolderOpen, File, Search,
+  ZoomIn, ZoomOut, Maximize2, Plus, X, ArrowRight, Check, Search,
 } from "lucide-react";
 import clsx from "clsx";
 import type { DocumentNode } from "@/lib/types";
@@ -55,7 +54,8 @@ function computeAbsPositions(nodes: DocumentNode[]) {
   return map;
 }
 
-function nodeColor(kind: string) {
+function nodeColor(kind: string, isRoot: boolean) {
+  if (isRoot) return { fill: "#b45309", stroke: "#fcd34d" };
   switch (kind) {
     case "category": return { fill: "#7c3aed", stroke: "#c4b5fd" };
     case "file":     return { fill: "#059669", stroke: "#6ee7b7" };
@@ -88,8 +88,9 @@ type DocNodeData = { docNode: DocumentNode };
 function ManagerNodeComponent({ data }: NodeProps) {
   const { docNode } = data as DocNodeData;
   const { hoveredId, selectedId, editingId, pendingParentId, setHoveredId } = useContext(GraphContext);
-  const r = docNode.parent_id === null ? 10 : 7;
-  const { fill, stroke } = nodeColor(docNode.node_kind);
+  const isRoot = docNode.parent_id === null;
+  const r = isRoot ? 12 : 7;
+  const { fill, stroke } = nodeColor(docNode.node_kind, isRoot);
   const id = docNode.id;
   const isSelected   = selectedId === id || editingId === id;
   const isPending    = pendingParentId === id;
@@ -104,20 +105,30 @@ function ManagerNodeComponent({ data }: NodeProps) {
       <Handle type="target" position={Position.Top}
         style={{ opacity: 0, left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />
       <svg width={r * 2} height={r * 2} style={{ overflow: "visible", display: "block" }}>
-        <circle cx={r} cy={r} r={r}
-          fill={isSelected ? "#ef4444" : isPending ? "#f97316" : fill}
-          stroke={isSelected ? "#dc2626" : isPending ? "#ea580c" : isHovered ? "#1e293b" : stroke}
-          strokeWidth={isSelected || isPending ? 2.5 : isHovered ? 2 : 1}
-        />
+        {isRoot ? (
+          <polygon
+            points={`${r},0 ${r*2},${r} ${r},${r*2} 0,${r}`}
+            fill={isSelected ? "#ef4444" : isPending ? "#f97316" : fill}
+            stroke={isSelected ? "#dc2626" : isPending ? "#ea580c" : isHovered ? "#1e293b" : stroke}
+            strokeWidth={isSelected || isPending ? 2.5 : isHovered ? 2 : 1.5}
+          />
+        ) : (
+          <circle cx={r} cy={r} r={r}
+            fill={isSelected ? "#ef4444" : isPending ? "#f97316" : fill}
+            stroke={isSelected ? "#dc2626" : isPending ? "#ea580c" : isHovered ? "#1e293b" : stroke}
+            strokeWidth={isSelected || isPending ? 2.5 : isHovered ? 2 : 1}
+          />
+        )}
       </svg>
       <Handle type="source" position={Position.Bottom}
         style={{ opacity: 0, left: "50%", bottom: "auto", top: "50%", transform: "translate(-50%,-50%)" }} />
       <div style={{
         position: "absolute", top: r * 2 + 4, left: "50%",
         transform: "translateX(-50%)", whiteSpace: "nowrap",
-        fontSize: 11, fontFamily: "monospace", pointerEvents: "none",
+        fontSize: isRoot ? 12 : 11, fontFamily: "monospace", pointerEvents: "none",
+        fontWeight: isRoot ? 700 : 400,
         color: isSelected ? "#ef4444" : isPending ? "#f97316"
-          : isHovered ? "#111827" : "#6b7280",
+          : isHovered ? "#111827" : isRoot ? "#92400e" : "#6b7280",
       }}>
         {docNode.title}
       </div>
@@ -180,7 +191,6 @@ function NodeGraphManagerInner({
 
   // Interaction context state
   const [hoveredId, setHoveredId] = useState<number | null>(null);
-  const [selectedNode, setSelectedNode] = useState<DocumentNode | null>(null);
 
   // Creation flow
   const [creationStep, setCreationStep] = useState<CreationStep | null>(null);
@@ -264,17 +274,13 @@ function NodeGraphManagerInner({
     centerDone.current = true;
   }, [nodesInitialized, nodes, setCenter]);
 
-  // ── sync editingNode / selectedNode after reload ───────────────────────────
+  // ── sync editingNode after reload ───────────────────────────────────────
 
   useEffect(() => {
     if (editingNode) {
       const upd = nodes.find((n) => n.id === editingNode.id);
       setEditingNode(upd ?? null);
       if (!upd) setPanelMode(null);
-    }
-    if (selectedNode) {
-      const upd = nodes.find((n) => n.id === selectedNode.id);
-      setSelectedNode(upd ?? null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes]);
@@ -316,7 +322,6 @@ function NodeGraphManagerInner({
   // ── creation flow ─────────────────────────────────────────────────────────
 
   function startCreation() {
-    setSelectedNode(null);
     setPanelMode(null);
     setEditingNode(null);
     setPendingParentId(null);
@@ -337,7 +342,6 @@ function NodeGraphManagerInner({
   }
 
   function openEditPanel(node: DocumentNode) {
-    setSelectedNode(null);
     setEditingNode(node);
     setPanelMode("edit");
   }
@@ -366,9 +370,7 @@ function NodeGraphManagerInner({
         hideGhost();
       }
     } else {
-      setSelectedNode(docNode);
-      setPanelMode(null);
-      setEditingNode(null);
+      openEditPanel(docNode);
     }
   }
 
@@ -381,8 +383,6 @@ function NodeGraphManagerInner({
       setPendingPos(pos);
       setCreationStep("placed");
       hideGhost();
-    } else {
-      setSelectedNode(null);
     }
   }
 
@@ -401,10 +401,8 @@ function NodeGraphManagerInner({
   function centerOnNode(docNode: DocumentNode) {
     const abs = computeAbsPositions(nodes).get(docNode.id);
     if (!abs) return;
-    setViewport({ x: -abs.x, y: -abs.y, zoom: 1 });
-    setSelectedNode(docNode);
-    setPanelMode(null);
-    setEditingNode(null);
+    setCenter(abs.x, abs.y, { zoom: 1, duration: 400 });
+    openEditPanel(docNode);
   }
 
   const searchResults = searchQuery.trim()
@@ -414,11 +412,25 @@ function NodeGraphManagerInner({
   // ── save handlers ─────────────────────────────────────────────────────────
 
   async function handleSaveNew(data: Partial<DocumentNode>) {
+    // pendingPos는 절대 flow 좌표이므로, 부모가 있으면 상대 좌표로 변환해서 저장
+    const absPos = pendingPos ? { ...pendingPos } : null;
+    let relX = absPos?.x ?? 0;
+    let relY = absPos?.y ?? 0;
+    if (pendingParentId && absPos) {
+      const parentAbs = computeAbsPositions(nodes).get(pendingParentId);
+      if (parentAbs) {
+        relX = absPos.x - parentAbs.x;
+        relY = absPos.y - parentAbs.y;
+      }
+    }
     try {
-      const created = await onCreateNode(data, pendingParentId, pendingPos?.x ?? 0, pendingPos?.y ?? 0);
+      const created = await onCreateNode(data, pendingParentId, relX, relY);
       cancelCreation();
       setPanelMode(null);
-      setSelectedNode(created);
+      // 새 노드가 있는 위치로 뷰포트 이동
+      if (absPos) {
+        setCenter(absPos.x, absPos.y, { zoom: 1, duration: 500 });
+      }
     } catch { /* handled upstream */ }
   }
 
@@ -491,7 +503,7 @@ function NodeGraphManagerInner({
   return (
     <GraphContext.Provider value={{
       hoveredId,
-      selectedId: selectedNode?.id ?? null,
+      selectedId: null,
       editingId: editingNode?.id ?? null,
       pendingParentId,
       setHoveredId,
@@ -642,54 +654,31 @@ function NodeGraphManagerInner({
             </svg>
           </div>
 
-          {/* Bottom action panel */}
-          {(selectedNode || creationStep === "placed") && (
+          {/* Bottom action panel — 노드 추가 중 "placed" 단계에서만 표시 */}
+          {creationStep === "placed" && pendingPos && (
             <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20">
-              {selectedNode && !inCreation && (
-                <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-lg">
-                  <NodeKindIcon kind={selectedNode.node_kind} />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate max-w-[180px]">{selectedNode.title}</p>
-                    <p className="text-[10px] text-gray-400 font-mono">
-                      #{selectedNode.id} · ({Math.round(selectedNode.pos_x ?? 0)}, {Math.round(selectedNode.pos_y ?? 0)})
-                    </p>
-                  </div>
-                  <div className="w-px h-8 bg-gray-200" />
-                  <button onClick={() => openEditPanel(selectedNode)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium transition-colors shrink-0">
-                    편집하기 <ArrowRight size={12} />
-                  </button>
-                  <button onClick={() => setSelectedNode(null)}
-                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
-                    <X size={13} />
-                  </button>
+              <div className="flex items-center gap-3 bg-white border border-blue-300 rounded-xl px-4 py-3 shadow-lg">
+                <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                  <Check size={13} className="text-blue-600" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-gray-900">위치 설정 완료</p>
+                  <p className="text-[10px] text-gray-400 font-mono">
+                    ({Math.round(pendingPos.x)}, {Math.round(pendingPos.y)})
+                    {pendingParentNode ? ` · 부모: ${pendingParentNode.title}` : " · 루트 노드"}
+                  </p>
                 </div>
-              )}
-
-              {creationStep === "placed" && pendingPos && (
-                <div className="flex items-center gap-3 bg-white border border-blue-300 rounded-xl px-4 py-3 shadow-lg">
-                  <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                    <Check size={13} className="text-blue-600" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-gray-900">위치 설정 완료</p>
-                    <p className="text-[10px] text-gray-400 font-mono">
-                      ({Math.round(pendingPos.x)}, {Math.round(pendingPos.y)})
-                      {pendingParentNode ? ` · 부모: ${pendingParentNode.title}` : " · 루트 노드"}
-                    </p>
-                  </div>
-                  <div className="w-px h-8 bg-gray-200" />
-                  <button onClick={openCreatePanel}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium transition-colors shrink-0">
-                    내용 추가하기 <ArrowRight size={12} />
-                  </button>
-                  <button
-                    onClick={() => { setPendingPos(null); setCreationStep("placing"); }}
-                    className="text-xs text-gray-400 hover:text-gray-700 transition-colors shrink-0">
-                    다시 선택
-                  </button>
-                </div>
-              )}
+                <div className="w-px h-8 bg-gray-200" />
+                <button onClick={openCreatePanel}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium transition-colors shrink-0">
+                  내용 추가하기 <ArrowRight size={12} />
+                </button>
+                <button
+                  onClick={() => { setPendingPos(null); setCreationStep("placing"); }}
+                  className="text-xs text-gray-400 hover:text-gray-700 transition-colors shrink-0">
+                  다시 선택
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -725,13 +714,6 @@ function StepPill({ num, label, done, active }: {
   );
 }
 
-function NodeKindIcon({ kind }: { kind: string }) {
-  switch (kind) {
-    case "category": return <FolderOpen size={15} className="text-violet-500 shrink-0" />;
-    case "file":     return <File size={15} className="text-emerald-500 shrink-0" />;
-    default:         return <FileText size={15} className="text-blue-500 shrink-0" />;
-  }
-}
 
 function CtrlBtn({ onClick, title, children }: {
   onClick: () => void; title?: string; children: React.ReactNode;

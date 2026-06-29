@@ -7,7 +7,6 @@ import type { Session } from "@supabase/supabase-js";
 import Sidebar from "@/components/Sidebar";
 import NodeGraphManager from "@/components/NodeGraphManager";
 import NodePositionPicker from "@/components/NodePositionPicker";
-import GraphView from "@/components/GraphView";
 import Dashboard from "@/components/Dashboard";
 import LoginPage from "@/components/LoginPage";
 import AnnouncementManager from "@/components/AnnouncementManager";
@@ -22,7 +21,7 @@ import {
 } from "@/lib/supabase";
 import { AlertTriangle } from "lucide-react";
 
-type Tab = "dashboard" | "graph" | "nodes" | "search" | "settings" | "announcements";
+type Tab = "dashboard" | "nodes" | "search" | "settings" | "announcements";
 
 export default function AdminPage() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -171,7 +170,6 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
           <div>
             <h1 className="text-sm font-semibold text-gray-900">
               {tab === "dashboard" && "대시보드"}
-              {tab === "graph" && "그래프 뷰"}
               {tab === "nodes" && "노드 관리"}
               {tab === "search" && "노드 검색"}
               {tab === "settings" && "설정"}
@@ -179,7 +177,6 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
             </h1>
             <p className="text-xs text-gray-400">
               {tab === "dashboard" && "전체 현황"}
-              {tab === "graph" && `${nodes.length}개 노드 시각화`}
               {tab === "nodes" && `${nodes.length}개 노드`}
               {tab === "search" && "노드 검색"}
               {tab === "settings" && "시스템 설정"}
@@ -221,15 +218,6 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
         <div className="flex-1 flex min-h-0 overflow-hidden">
           {tab === "dashboard" && (
             <Dashboard nodes={nodes} />
-          )}
-
-          {tab === "graph" && (
-            <GraphView
-              nodes={nodes}
-              onSelectNode={(node) => {
-                setTab("nodes");
-              }}
-            />
           )}
 
           {(tab === "nodes" || tab === "search") && (

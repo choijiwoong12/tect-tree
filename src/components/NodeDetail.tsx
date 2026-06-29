@@ -71,7 +71,7 @@ export default function NodeDetail({
       setNodeKind("content");
       setBodyContent("");
       setSelectedParentId(parentId ?? null);
-      setIsLocked(false);
+      setIsLocked(true);
       setPrice("");
       setIndexItems([]);
     } else if (node) {
