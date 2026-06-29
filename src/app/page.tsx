@@ -6,22 +6,25 @@ import { useState, useEffect, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import Sidebar from "@/components/Sidebar";
 import NodeGraphManager from "@/components/NodeGraphManager";
-import NodePositionPicker from "@/components/NodePositionPicker";
+import PreviewGraph from "@/components/PreviewGraph";
 import Dashboard from "@/components/Dashboard";
 import LoginPage from "@/components/LoginPage";
 import AnnouncementManager from "@/components/AnnouncementManager";
-import type { DocumentNode } from "@/lib/types";
+import type { DocumentNode, NodeEdge } from "@/lib/types";
 import {
   supabase,
   fetchAllNodes,
+  fetchAllEdges,
   createNode,
   updateNode,
   deleteNode,
+  createEdge,
+  deleteEdge,
   signOut,
 } from "@/lib/supabase";
 import { AlertTriangle } from "lucide-react";
 
-type Tab = "dashboard" | "nodes" | "search" | "settings" | "announcements";
+type Tab = "dashboard" | "nodes" | "search" | "settings" | "announcements" | "preview";
 
 export default function AdminPage() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -49,23 +52,23 @@ export default function AdminPage() {
 function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>("nodes");
   const [nodes, setNodes] = useState<DocumentNode[]>([]);
+  const [edges, setEdges] = useState<NodeEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [saving, setSaving] = useState(false);
-  const [repositioningNode, setRepositioningNode] = useState<DocumentNode | null>(null);
 
-  const loadNodes = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchAllNodes();
-      setNodes(data);
+      const [nodesData, edgesData] = await Promise.all([fetchAllNodes(), fetchAllEdges()]);
+      setNodes(nodesData);
+      setEdges(edgesData);
     } catch (e) {
       setError(
         e instanceof Error
           ? e.message
-          : "노드를 불러오지 못했습니다. Supabase .env 설정을 확인하세요."
+          : "데이터를 불러오지 못했습니다. Supabase .env 설정을 확인하세요."
       );
     } finally {
       setLoading(false);
@@ -73,8 +76,8 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
   }, []);
 
   useEffect(() => {
-    loadNodes();
-  }, [loadNodes]);
+    loadData();
+  }, [loadData]);
 
   function errMsg(e: unknown) {
     return e instanceof Error ? e.message
@@ -85,7 +88,6 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
 
   async function handleCreateNode(
     data: Partial<DocumentNode>,
-    parentId: number | null,
     posX: number,
     posY: number
   ): Promise<DocumentNode> {
@@ -96,7 +98,6 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
         node_kind: data.node_kind ?? "content",
         body_content: data.body_content ?? null,
         index_items: data.index_items ?? null,
-        parent_id: parentId,
         is_locked: data.is_locked ?? false,
         price: data.price ?? null,
         file_name: null,
@@ -104,7 +105,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
         pos_x: posX,
         pos_y: posY,
       });
-      await loadNodes();
+      await loadData();
       return created;
     } catch (e) {
       alert(errMsg(e));
@@ -118,7 +119,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
     setSaving(true);
     try {
       const updated = await updateNode(id, data);
-      await loadNodes();
+      await loadData();
       return updated;
     } catch (e) {
       alert(errMsg(e));
@@ -131,24 +132,31 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
   async function handleDeleteNode(id: number): Promise<void> {
     try {
       await deleteNode(id);
-      await loadNodes();
+      await loadData();
     } catch (e) {
       alert(errMsg(e));
       throw e;
     }
   }
 
-  async function handleRepositionConfirm(posX: number, posY: number) {
-    if (!repositioningNode) return;
-    setSaving(true);
+  async function handleCreateEdge(sourceId: number, targetId: number): Promise<NodeEdge> {
     try {
-      await updateNode(repositioningNode.id, { pos_x: posX, pos_y: posY });
-      await loadNodes();
-      setRepositioningNode(null);
+      const edge = await createEdge(sourceId, targetId);
+      await loadData();
+      return edge;
     } catch (e) {
       alert(errMsg(e));
-    } finally {
-      setSaving(false);
+      throw e;
+    }
+  }
+
+  async function handleDeleteEdge(id: number): Promise<void> {
+    try {
+      await deleteEdge(id);
+      await loadData();
+    } catch (e) {
+      alert(errMsg(e));
+      throw e;
     }
   }
 
@@ -156,9 +164,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
     <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
       <Sidebar
         activeTab={tab}
-        onTabChange={(t) => {
-          setTab(t as Tab);
-        }}
+        onTabChange={(t) => setTab(t as Tab)}
         totalNodes={nodes.length}
         user={session.user}
         onSignOut={onSignOut}
@@ -169,22 +175,23 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
         <header className="flex items-center justify-between px-6 h-14 bg-white border-b border-gray-200 shrink-0">
           <div>
             <h1 className="text-sm font-semibold text-gray-900">
-              {tab === "dashboard" && "대시보드"}
-              {tab === "nodes" && "노드 관리"}
-              {tab === "search" && "노드 검색"}
-              {tab === "settings" && "설정"}
+              {tab === "dashboard"     && "대시보드"}
+              {tab === "nodes"         && "노드 관리"}
+              {tab === "search"        && "노드 검색"}
+              {tab === "settings"      && "설정"}
               {tab === "announcements" && "공지사항 관리"}
+              {tab === "preview"       && "그래프 미리보기"}
             </h1>
             <p className="text-xs text-gray-400">
-              {tab === "dashboard" && "전체 현황"}
-              {tab === "nodes" && `${nodes.length}개 노드`}
-              {tab === "search" && "노드 검색"}
-              {tab === "settings" && "시스템 설정"}
+              {tab === "dashboard"     && "전체 현황"}
+              {tab === "nodes"         && `노드 ${nodes.length}개 · 엣지 ${edges.length}개`}
+              {tab === "search"        && "노드 검색"}
+              {tab === "settings"      && "시스템 설정"}
               {tab === "announcements" && "공지 추가 · 편집 · 순서 변경"}
+              {tab === "preview"       && "유저 화면과 동일한 그래프 시뮬레이션"}
             </p>
           </div>
 
-          {/* Supabase status */}
           <div className="flex items-center gap-2">
             {error ? (
               <span className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-full">
@@ -206,7 +213,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
             <AlertTriangle size={16} className="text-red-500 shrink-0" />
             <p className="text-sm text-red-700">{error}</p>
             <button
-              onClick={loadNodes}
+              onClick={loadData}
               className="ml-auto text-xs font-medium text-red-600 hover:text-red-700 underline"
             >
               다시 시도
@@ -216,19 +223,23 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
 
         {/* Main content */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          {tab === "dashboard" && (
-            <Dashboard nodes={nodes} />
-          )}
+          {tab === "dashboard" && <Dashboard nodes={nodes} />}
 
           {(tab === "nodes" || tab === "search") && (
             <NodeGraphManager
               nodes={nodes}
+              edges={edges}
               saving={saving}
               onCreateNode={handleCreateNode}
               onUpdateNode={handleUpdateNode}
               onDeleteNode={handleDeleteNode}
-              onStartReposition={(node) => setRepositioningNode(node)}
+              onCreateEdge={handleCreateEdge}
+              onDeleteEdge={handleDeleteEdge}
             />
+          )}
+
+          {tab === "preview" && (
+            <PreviewGraph nodes={nodes} edges={edges} />
           )}
 
           {tab === "announcements" && <AnnouncementManager />}
@@ -239,19 +250,11 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
                 <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
                   <div>
                     <h2 className="text-sm font-semibold text-gray-900">Supabase 연결 정보</h2>
-                    <p className="text-xs text-gray-500 mt-1">
-                      환경변수(.env.local)에서 설정됩니다.
-                    </p>
+                    <p className="text-xs text-gray-500 mt-1">환경변수(.env.local)에서 설정됩니다.</p>
                   </div>
                   <div className="space-y-3">
-                    <EnvRow
-                      label="NEXT_PUBLIC_SUPABASE_URL"
-                      value={process.env.NEXT_PUBLIC_SUPABASE_URL}
-                    />
-                    <EnvRow
-                      label="NEXT_PUBLIC_SUPABASE_ANON_KEY"
-                      value={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "설정됨 ✓" : undefined}
-                    />
+                    <EnvRow label="NEXT_PUBLIC_SUPABASE_URL" value={process.env.NEXT_PUBLIC_SUPABASE_URL} />
+                    <EnvRow label="NEXT_PUBLIC_SUPABASE_ANON_KEY" value={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "설정됨 ✓" : undefined} />
                   </div>
                   <div className="pt-2 border-t border-gray-100">
                     <p className="text-xs text-gray-400">
@@ -265,15 +268,6 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
           )}
         </div>
       </div>
-      {repositioningNode && (
-        <NodePositionPicker
-          nodes={nodes.filter((n) => n.id !== repositioningNode.id)}
-          parentId={repositioningNode.parent_id}
-          newNodeTitle={repositioningNode.title}
-          onConfirm={handleRepositionConfirm}
-          onBack={() => setRepositioningNode(null)}
-        />
-      )}
     </div>
   );
 }
@@ -282,13 +276,7 @@ function EnvRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="flex items-center justify-between py-2 border-b border-gray-50">
       <code className="text-xs text-gray-600">{label}</code>
-      <span
-        className={
-          value
-            ? "text-xs text-emerald-600 font-medium"
-            : "text-xs text-red-400"
-        }
-      >
+      <span className={value ? "text-xs text-emerald-600 font-medium" : "text-xs text-red-400"}>
         {value ?? "미설정"}
       </span>
     </div>

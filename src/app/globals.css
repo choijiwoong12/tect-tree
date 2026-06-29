@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Preview fonts (Sam3KRFont / NanumMyeongjo) ── */
+@font-face {
+  font-family: "Sam3KRFont";
+  src: url("/fonts/Sam3KRFont.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "NanumMyeongjo";
+  src: url("/fonts/NanumMyeongjo.ttf") format("truetype");
+  font-display: swap;
+}
+.font-pixel    { font-family: "Sam3KRFont", monospace; letter-spacing: 0; }
+.font-myeongjo { font-family: "NanumMyeongjo", serif; }
+
+/* ── Tree edge zoom-out fade (matches user-front) ── */
+.react-flow__edge { transition: opacity 0.3s ease; }
+.tree-zoomed-out .react-flow__edge.rf-dim-edge { opacity: 0; pointer-events: none; }
+
+/* ── Noise / grain overlay ── */
+.athena-noise {
+  opacity: 0.22;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 @layer base {
   * {
     box-sizing: border-box;

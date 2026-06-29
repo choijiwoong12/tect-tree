@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -26,36 +25,37 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  ZoomIn, ZoomOut, Maximize2, Plus, X, ArrowRight, Check, Search,
+  ZoomIn, ZoomOut, Maximize2, Plus, X, ArrowRight, Search, Trash2, MapPin,
 } from "lucide-react";
 import clsx from "clsx";
-import type { DocumentNode } from "@/lib/types";
+import type { DocumentNode, NodeEdge } from "@/lib/types";
 import NodeDetail from "./NodeDetail";
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── types ────────────────────────────────────────────────────────────────────
 
-function computeAbsPositions(nodes: DocumentNode[]) {
-  const map = new Map<number, { x: number; y: number }>();
-  function get(id: number): { x: number; y: number } {
-    if (map.has(id)) return map.get(id)!;
-    const n = nodes.find((n) => n.id === id);
-    if (!n) return { x: 0, y: 0 };
-    if (n.parent_id === null) {
-      const pos = { x: n.pos_x ?? 0, y: n.pos_y ?? 0 };
-      map.set(id, pos);
-      return pos;
-    }
-    const p = get(n.parent_id);
-    const pos = { x: p.x + (n.pos_x ?? 0), y: p.y + (n.pos_y ?? 0) };
-    map.set(id, pos);
-    return pos;
-  }
-  nodes.forEach((n) => get(n.id));
-  return map;
+type GraphMode = "default" | "add-node" | "add-edge" | "reposition";
+
+// ─── context ─────────────────────────────────────────────────────────────────
+
+interface GraphCtx {
+  hoveredId: number | null;
+  editingId: number | null;
+  edgeSourceId: number | null;
+  graphMode: GraphMode;
+  setHoveredId: (id: number | null) => void;
 }
 
-function nodeColor(kind: string, isRoot: boolean) {
-  if (isRoot) return { fill: "#b45309", stroke: "#fcd34d" };
+const GraphContext = createContext<GraphCtx>({
+  hoveredId: null,
+  editingId: null,
+  edgeSourceId: null,
+  graphMode: "default",
+  setHoveredId: () => {},
+});
+
+// ─── node styling ─────────────────────────────────────────────────────────────
+
+function nodeColor(kind: string) {
   switch (kind) {
     case "category": return { fill: "#7c3aed", stroke: "#c4b5fd" };
     case "file":     return { fill: "#059669", stroke: "#6ee7b7" };
@@ -63,38 +63,37 @@ function nodeColor(kind: string, isRoot: boolean) {
   }
 }
 
-// ─── context ─────────────────────────────────────────────────────────────────
-
-interface GraphCtx {
-  hoveredId: number | null;
-  selectedId: number | null;
-  editingId: number | null;
-  pendingParentId: number | null;
-  setHoveredId: (id: number | null) => void;
+function nodeRadius(kind: string) {
+  switch (kind) {
+    case "category": return 10;
+    case "file":     return 6;
+    default:         return 7;
+  }
 }
 
-const GraphContext = createContext<GraphCtx>({
-  hoveredId: null,
-  selectedId: null,
-  editingId: null,
-  pendingParentId: null,
-  setHoveredId: () => {},
-});
-
-// ─── custom nodes ─────────────────────────────────────────────────────────────
+// ─── custom node ─────────────────────────────────────────────────────────────
 
 type DocNodeData = { docNode: DocumentNode };
 
 function ManagerNodeComponent({ data }: NodeProps) {
   const { docNode } = data as DocNodeData;
-  const { hoveredId, selectedId, editingId, pendingParentId, setHoveredId } = useContext(GraphContext);
-  const isRoot = docNode.parent_id === null;
-  const r = isRoot ? 12 : 7;
-  const { fill, stroke } = nodeColor(docNode.node_kind, isRoot);
+  const { hoveredId, editingId, edgeSourceId, graphMode, setHoveredId } = useContext(GraphContext);
   const id = docNode.id;
-  const isSelected   = selectedId === id || editingId === id;
-  const isPending    = pendingParentId === id;
-  const isHovered    = hoveredId === id;
+  const r = nodeRadius(docNode.node_kind);
+  const { fill, stroke } = nodeColor(docNode.node_kind);
+
+  const isEditing = editingId === id;
+  const isEdgeSrc = edgeSourceId === id;
+  const isHovered = hoveredId === id;
+  const isAddEdge = graphMode === "add-edge";
+
+  const circleFill   = isEditing ? "#ef4444" : isEdgeSrc ? "#f97316" : fill;
+  const circleStroke = isEditing ? "#dc2626"
+    : isEdgeSrc  ? "#ea580c"
+    : isHovered && isAddEdge ? "#22c55e"
+    : isHovered  ? "#1e293b"
+    : stroke;
+  const sw = isEditing || isEdgeSrc ? 2.5 : isHovered ? 2 : 1.5;
 
   return (
     <div
@@ -105,19 +104,9 @@ function ManagerNodeComponent({ data }: NodeProps) {
       <Handle type="target" position={Position.Top}
         style={{ opacity: 0, left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />
       <svg width={r * 2} height={r * 2} style={{ overflow: "visible", display: "block" }}>
-        {isRoot ? (
-          <polygon
-            points={`${r},0 ${r*2},${r} ${r},${r*2} 0,${r}`}
-            fill={isSelected ? "#ef4444" : isPending ? "#f97316" : fill}
-            stroke={isSelected ? "#dc2626" : isPending ? "#ea580c" : isHovered ? "#1e293b" : stroke}
-            strokeWidth={isSelected || isPending ? 2.5 : isHovered ? 2 : 1.5}
-          />
-        ) : (
-          <circle cx={r} cy={r} r={r}
-            fill={isSelected ? "#ef4444" : isPending ? "#f97316" : fill}
-            stroke={isSelected ? "#dc2626" : isPending ? "#ea580c" : isHovered ? "#1e293b" : stroke}
-            strokeWidth={isSelected || isPending ? 2.5 : isHovered ? 2 : 1}
-          />
+        <circle cx={r} cy={r} r={r} fill={circleFill} stroke={circleStroke} strokeWidth={sw} />
+        {isEdgeSrc && (
+          <circle cx={r} cy={r} r={r + 4} fill="none" stroke="#f97316" strokeWidth={1.5} strokeDasharray="3,2" />
         )}
       </svg>
       <Handle type="source" position={Position.Bottom}
@@ -125,10 +114,10 @@ function ManagerNodeComponent({ data }: NodeProps) {
       <div style={{
         position: "absolute", top: r * 2 + 4, left: "50%",
         transform: "translateX(-50%)", whiteSpace: "nowrap",
-        fontSize: isRoot ? 12 : 11, fontFamily: "monospace", pointerEvents: "none",
-        fontWeight: isRoot ? 700 : 400,
-        color: isSelected ? "#ef4444" : isPending ? "#f97316"
-          : isHovered ? "#111827" : isRoot ? "#92400e" : "#6b7280",
+        fontSize: docNode.node_kind === "category" ? 12 : 11,
+        fontFamily: "monospace", pointerEvents: "none",
+        fontWeight: docNode.node_kind === "category" ? 700 : 400,
+        color: isEditing ? "#ef4444" : isEdgeSrc ? "#f97316" : isHovered ? "#111827" : "#6b7280",
       }}>
         {docNode.title}
       </div>
@@ -136,152 +125,125 @@ function ManagerNodeComponent({ data }: NodeProps) {
   );
 }
 
-function PendingNodeComponent() {
-  return (
-    <div style={{ width: 14, height: 14, position: "relative" }}>
-      <Handle type="target" position={Position.Top}
-        style={{ opacity: 0, left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />
-      <svg width={14} height={14} style={{ overflow: "visible", display: "block" }}>
-        <circle cx={7} cy={7} r={7} fill="#3b82f6" stroke="#fff" strokeWidth={2.5} />
-      </svg>
-    </div>
-  );
-}
-
-const nodeTypes = {
-  managerNode: ManagerNodeComponent,
-  pendingNode: PendingNodeComponent,
-};
+const nodeTypes = { managerNode: ManagerNodeComponent };
 
 // ─── props ────────────────────────────────────────────────────────────────────
 
-type CreationStep = "select-parent" | "placing" | "placed";
-
 interface Props {
   nodes: DocumentNode[];
+  edges: NodeEdge[];
   saving: boolean;
-  onCreateNode: (
-    data: Partial<DocumentNode>,
-    parentId: number | null,
-    posX: number,
-    posY: number
-  ) => Promise<DocumentNode>;
+  onCreateNode: (data: Partial<DocumentNode>, posX: number, posY: number) => Promise<DocumentNode>;
   onUpdateNode: (id: number, data: Partial<DocumentNode>) => Promise<DocumentNode>;
   onDeleteNode: (id: number) => Promise<void>;
-  onStartReposition: (node: DocumentNode) => void;
+  onCreateEdge: (sourceId: number, targetId: number) => Promise<NodeEdge>;
+  onDeleteEdge: (id: number) => Promise<void>;
 }
 
 // ─── inner component ──────────────────────────────────────────────────────────
 
 function NodeGraphManagerInner({
-  nodes,
-  saving,
-  onCreateNode,
-  onUpdateNode,
-  onDeleteNode,
-  onStartReposition,
+  nodes, edges, saving,
+  onCreateNode, onUpdateNode, onDeleteNode, onCreateEdge, onDeleteEdge,
 }: Props) {
   const { zoomIn, zoomOut, setViewport, setCenter, screenToFlowPosition, getViewport } = useReactFlow();
   const nodesInitialized = useNodesInitialized();
   const centerDone = useRef(false);
 
-  // Graph state
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  // Interaction context state
-  const [hoveredId, setHoveredId] = useState<number | null>(null);
-
-  // Creation flow
-  const [creationStep, setCreationStep] = useState<CreationStep | null>(null);
-  const [pendingParentId, setPendingParentId] = useState<number | null>(null);
-  const [pendingPos, setPendingPos] = useState<{ x: number; y: number } | null>(null);
-
-  // Panel state
-  const [panelMode, setPanelMode] = useState<"create" | "edit" | null>(null);
-  const [editingNode, setEditingNode] = useState<DocumentNode | null>(null);
-
-  // Search
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [graphMode, setGraphMode]       = useState<GraphMode>("default");
+  const [editingNode, setEditingNode]   = useState<DocumentNode | null>(null);
+  const [pendingPos, setPendingPos]     = useState<{ x: number; y: number } | null>(null);
+  const [edgeSourceId, setEdgeSourceId] = useState<number | null>(null);
+  const [deletingEdge, setDeletingEdge] = useState<NodeEdge | null>(null);
+  const [hoveredId, setHoveredId]       = useState<number | null>(null);
+  const [showSearch, setShowSearch]     = useState(false);
+  const [searchQuery, setSearchQuery]   = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Ghost cursor refs (DOM manipulation for performance)
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const ghostRef = useRef<HTMLDivElement>(null);
+  const canvasRef    = useRef<HTMLDivElement>(null);
+  const ghostNodeRef = useRef<HTMLDivElement>(null);
   const ghostEdgeRef = useRef<SVGLineElement>(null);
 
-  // ── sync nodes/edges ──────────────────────────────────────────────────────
+  const [panelWidth, setPanelWidth] = useState(380);
+  const isResizing   = useRef(false);
+  const resizeStartX = useRef(0);
+  const resizeStartW = useRef(0);
+
+  function handleResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    isResizing.current   = true;
+    resizeStartX.current = e.clientX;
+    resizeStartW.current = panelWidth;
+    document.body.style.cursor     = "col-resize";
+    document.body.style.userSelect = "none";
+
+    function onMove(ev: MouseEvent) {
+      if (!isResizing.current) return;
+      const dx  = resizeStartX.current - ev.clientX;
+      const nw  = Math.max(260, Math.min(680, resizeStartW.current + dx));
+      setPanelWidth(nw);
+    }
+    function onUp() {
+      isResizing.current             = false;
+      document.body.style.cursor     = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup",   onUp);
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup",   onUp);
+  }
+
+  const showPanel   = editingNode !== null || pendingPos !== null;
+  const panelIsNew  = pendingPos !== null && editingNode === null;
+
+  // ── sync rfNodes ────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const abs = computeAbsPositions(nodes);
-    const base: Node[] = nodes.map((n): Node => ({
+    setRfNodes(nodes.map((n): Node => ({
       id: String(n.id),
-      position: abs.get(n.id) ?? { x: 0, y: 0 },
+      position: { x: n.pos_x ?? 0, y: n.pos_y ?? 0 },
       data: { docNode: n },
       type: "managerNode",
       draggable: false,
-    }));
+    })));
+  }, [nodes, setRfNodes]);
 
-    if (pendingPos && creationStep === "placed") {
-      base.push({
-        id: "__pending__",
-        position: pendingPos,
-        data: {},
-        type: "pendingNode",
-        draggable: false,
-        selectable: false,
-      });
-    }
+  // ── sync rfEdges ────────────────────────────────────────────────────────────
 
-    setRfNodes(base);
+  useEffect(() => {
+    setRfEdges(edges.map((e): Edge => ({
+      id: String(e.id),
+      source: String(e.source_id),
+      target: String(e.target_id),
+      type: "straight",
+      style: deletingEdge?.id === e.id
+        ? { stroke: "#ef4444", strokeWidth: 2 }
+        : { stroke: "#e2e8f0", strokeWidth: 1 },
+    })));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edges, deletingEdge, setRfEdges]);
 
-    const baseEdges: Edge[] = nodes
-      .filter((n) => n.parent_id !== null)
-      .map((n): Edge => ({
-        id: `e-${n.parent_id}-${n.id}`,
-        source: String(n.parent_id!),
-        target: String(n.id),
-        type: "straight",
-        style: { stroke: "#e2e8f0", strokeWidth: 1 },
-      }));
-
-    if (pendingPos && creationStep === "placed" && pendingParentId) {
-      baseEdges.push({
-        id: "__pending-edge__",
-        source: String(pendingParentId),
-        target: "__pending__",
-        type: "straight",
-        style: { stroke: "#3b82f6", strokeWidth: 1.5 },
-      });
-    }
-
-    setRfEdges(baseEdges);
-  }, [nodes, pendingPos, creationStep, pendingParentId, setRfNodes, setRfEdges]);
-
-  // ── center on root nodes on initial load ─────────────────────────────────
+  // ── initial centering ───────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!nodesInitialized || centerDone.current || nodes.length === 0) return;
-    const roots = nodes.filter((n) => n.parent_id === null);
-    if (roots.length === 0) return;
-    const abs = computeAbsPositions(nodes);
-    const positions = roots.map((n) => abs.get(n.id)).filter((p): p is { x: number; y: number } => !!p);
-    if (positions.length === 0) return;
-    const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length;
-    const cy = positions.reduce((s, p) => s + p.y, 0) / positions.length;
+    const cx = nodes.reduce((s, n) => s + (n.pos_x ?? 0), 0) / nodes.length;
+    const cy = nodes.reduce((s, n) => s + (n.pos_y ?? 0), 0) / nodes.length;
     setCenter(cx, cy, { zoom: 1 });
     centerDone.current = true;
   }, [nodesInitialized, nodes, setCenter]);
 
-  // ── sync editingNode after reload ───────────────────────────────────────
+  // ── keep editingNode in sync after reload ────────────────────────────────────
 
   useEffect(() => {
-    if (editingNode) {
-      const upd = nodes.find((n) => n.id === editingNode.id);
-      setEditingNode(upd ?? null);
-      if (!upd) setPanelMode(null);
-    }
+    if (!editingNode) return;
+    const upd = nodes.find((n) => n.id === editingNode.id);
+    if (upd) setEditingNode(upd);
+    else { setEditingNode(null); setPendingPos(null); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes]);
 
@@ -289,148 +251,136 @@ function NodeGraphManagerInner({
     if (showSearch) searchInputRef.current?.focus();
   }, [showSearch]);
 
-  // ── ghost cursor (DOM manipulation, no re-render) ─────────────────────────
+  // ── ghost helpers ────────────────────────────────────────────────────────────
 
-  const updateGhost = useCallback((clientX: number, clientY: number) => {
-    if (ghostRef.current) {
-      ghostRef.current.style.left = `${clientX}px`;
-      ghostRef.current.style.top = `${clientY}px`;
-      ghostRef.current.style.display = "block";
+  const updateGhostNode = useCallback((cx: number, cy: number) => {
+    if (ghostNodeRef.current) {
+      ghostNodeRef.current.style.left = `${cx}px`;
+      ghostNodeRef.current.style.top  = `${cy}px`;
+      ghostNodeRef.current.style.display = "block";
     }
+  }, []);
 
-    if (ghostEdgeRef.current && pendingParentId) {
-      const abs = computeAbsPositions(nodes).get(pendingParentId);
-      const rect = wrapperRef.current?.getBoundingClientRect();
-      if (abs && rect) {
-        const vp = getViewport();
-        const x1 = rect.left + abs.x * vp.zoom + vp.x;
-        const y1 = rect.top + abs.y * vp.zoom + vp.y;
-        ghostEdgeRef.current.setAttribute("x1", String(x1));
-        ghostEdgeRef.current.setAttribute("y1", String(y1));
-        ghostEdgeRef.current.setAttribute("x2", String(clientX));
-        ghostEdgeRef.current.setAttribute("y2", String(clientY));
-        ghostEdgeRef.current.style.display = "block";
-      }
-    }
-  }, [pendingParentId, nodes, getViewport]);
+  const updateGhostEdge = useCallback((cx: number, cy: number) => {
+    if (!ghostEdgeRef.current || !edgeSourceId) return;
+    const src = nodes.find((n) => n.id === edgeSourceId);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!src || !rect) return;
+    const vp = getViewport();
+    ghostEdgeRef.current.setAttribute("x1", String(rect.left + (src.pos_x ?? 0) * vp.zoom + vp.x));
+    ghostEdgeRef.current.setAttribute("y1", String(rect.top  + (src.pos_y ?? 0) * vp.zoom + vp.y));
+    ghostEdgeRef.current.setAttribute("x2", String(cx));
+    ghostEdgeRef.current.setAttribute("y2", String(cy));
+    ghostEdgeRef.current.style.display = "block";
+  }, [edgeSourceId, nodes, getViewport]);
 
-  function hideGhost() {
-    if (ghostRef.current) ghostRef.current.style.display = "none";
+  function hideGhosts() {
+    if (ghostNodeRef.current) ghostNodeRef.current.style.display = "none";
     if (ghostEdgeRef.current) ghostEdgeRef.current.style.display = "none";
   }
 
-  // ── creation flow ─────────────────────────────────────────────────────────
-
-  function startCreation() {
-    setPanelMode(null);
-    setEditingNode(null);
-    setPendingParentId(null);
-    setPendingPos(null);
-    hideGhost();
-    setCreationStep("select-parent");
+  function handleCanvasMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (graphMode === "add-node" || graphMode === "reposition") updateGhostNode(e.clientX, e.clientY);
+    else if (graphMode === "add-edge" && edgeSourceId) updateGhostEdge(e.clientX, e.clientY);
   }
 
-  function cancelCreation() {
-    setCreationStep(null);
-    setPendingParentId(null);
-    setPendingPos(null);
-    hideGhost();
+  // ── mode management ──────────────────────────────────────────────────────────
+
+  function switchMode(mode: GraphMode) {
+    setGraphMode(mode);
+    setEdgeSourceId(null);
+    setDeletingEdge(null);
+    hideGhosts();
   }
 
-  function openCreatePanel() {
-    setPanelMode("create");
-  }
-
-  function openEditPanel(node: DocumentNode) {
-    setEditingNode(node);
-    setPanelMode("edit");
-  }
-
-  function closePanel() {
-    setPanelMode(null);
-    setEditingNode(null);
-    if (panelMode === "create") cancelCreation();
-  }
-
-  // ── graph event handlers ──────────────────────────────────────────────────
+  // ── graph events ─────────────────────────────────────────────────────────────
 
   function handleNodeClick(_: React.MouseEvent, rfNode: Node) {
-    if (rfNode.id === "__pending__") return;
     const docNode = nodes.find((n) => String(n.id) === rfNode.id);
     if (!docNode) return;
 
-    if (creationStep === "select-parent") {
-      setPendingParentId(docNode.id);
-      setCreationStep("placing");
-    } else if (creationStep === "placing") {
-      const abs = computeAbsPositions(nodes).get(docNode.id);
-      if (abs) {
-        setPendingPos({ x: abs.x + 60, y: abs.y + 60 });
-        setCreationStep("placed");
-        hideGhost();
+    if (graphMode === "add-edge") {
+      if (!edgeSourceId) {
+        setEdgeSourceId(docNode.id);
+      } else if (edgeSourceId === docNode.id) {
+        setEdgeSourceId(null); hideGhosts();
+      } else {
+        doCreateEdge(edgeSourceId, docNode.id);
       }
-    } else {
-      openEditPanel(docNode);
+    } else if (graphMode === "default") {
+      setPendingPos(null);
+      setEditingNode(docNode);
+      setCenter(docNode.pos_x ?? 0, docNode.pos_y ?? 0, { zoom: 1, duration: 400 });
     }
+    // add-node / reposition: node clicks ignored
   }
 
   function handlePaneClick(e: React.MouseEvent) {
-    if (creationStep === "select-parent") {
-      setPendingParentId(null);
-      setCreationStep("placing");
-    } else if (creationStep === "placing") {
+    if (graphMode === "add-node") {
       const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      setEditingNode(null);
       setPendingPos(pos);
-      setCreationStep("placed");
-      hideGhost();
+      hideGhosts();
+      setGraphMode("default");
+    } else if (graphMode === "reposition") {
+      const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      if (editingNode) doReposition(editingNode.id, pos.x, pos.y);
+    } else if (graphMode === "add-edge") {
+      setEdgeSourceId(null); hideGhosts();
     }
   }
 
-  function handleWrapperMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (creationStep === "placing") {
-      updateGhost(e.clientX, e.clientY);
-    }
+  function handleEdgeClick(_: React.MouseEvent, rfEdge: Edge) {
+    if (graphMode !== "default") return;
+    const edge = edges.find((e) => String(e.id) === rfEdge.id);
+    if (edge) setDeletingEdge(edge);
   }
 
-  function handleWrapperMouseLeave() {
-    hideGhost();
+  // ── async ops ────────────────────────────────────────────────────────────────
+
+  async function doCreateEdge(sourceId: number, targetId: number) {
+    setEdgeSourceId(null); hideGhosts();
+    try { await onCreateEdge(sourceId, targetId); }
+    catch (e) { alert(e instanceof Error ? e.message : "엣지 생성 실패"); }
   }
 
-  // ── search ────────────────────────────────────────────────────────────────
-
-  function centerOnNode(docNode: DocumentNode) {
-    const abs = computeAbsPositions(nodes).get(docNode.id);
-    if (!abs) return;
-    setCenter(abs.x, abs.y, { zoom: 1, duration: 400 });
-    openEditPanel(docNode);
+  async function doDeleteEdge() {
+    if (!deletingEdge) return;
+    const id = deletingEdge.id;
+    setDeletingEdge(null);
+    try { await onDeleteEdge(id); }
+    catch (e) { alert(e instanceof Error ? e.message : "엣지 삭제 실패"); }
   }
 
-  const searchResults = searchQuery.trim()
-    ? nodes.filter((n) => n.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : [];
+  async function doReposition(id: number, x: number, y: number) {
+    setGraphMode("default"); hideGhosts();
+    try {
+      const updated = await onUpdateNode(id, { pos_x: Math.round(x), pos_y: Math.round(y) });
+      setEditingNode(updated);
+      setCenter(x, y, { zoom: 1, duration: 300 });
+    } catch (e) { alert(e instanceof Error ? e.message : "위치 변경 실패"); }
+  }
 
-  // ── save handlers ─────────────────────────────────────────────────────────
+  // ── panel callbacks ──────────────────────────────────────────────────────────
+
+  function closePanel() {
+    if (editingNode) setCenter(editingNode.pos_x ?? 0, editingNode.pos_y ?? 0, { zoom: 1, duration: 400 });
+    setEditingNode(null);
+    setPendingPos(null);
+  }
+
+  function startReposition() {
+    if (editingNode) setCenter(editingNode.pos_x ?? 0, editingNode.pos_y ?? 0, { zoom: 1, duration: 300 });
+    setGraphMode("reposition");
+  }
 
   async function handleSaveNew(data: Partial<DocumentNode>) {
-    // pendingPos는 절대 flow 좌표이므로, 부모가 있으면 상대 좌표로 변환해서 저장
-    const absPos = pendingPos ? { ...pendingPos } : null;
-    let relX = absPos?.x ?? 0;
-    let relY = absPos?.y ?? 0;
-    if (pendingParentId && absPos) {
-      const parentAbs = computeAbsPositions(nodes).get(pendingParentId);
-      if (parentAbs) {
-        relX = absPos.x - parentAbs.x;
-        relY = absPos.y - parentAbs.y;
-      }
-    }
+    if (!pendingPos) return;
     try {
-      const created = await onCreateNode(data, pendingParentId, relX, relY);
-      cancelCreation();
-      setPanelMode(null);
-      // 새 노드가 있는 위치로 뷰포트 이동
-      if (absPos) {
-        setCenter(absPos.x, absPos.y, { zoom: 1, duration: 500 });
-      }
+      const created = await onCreateNode(data, Math.round(pendingPos.x), Math.round(pendingPos.y));
+      setPendingPos(null);
+      setEditingNode(created);
+      setCenter(pendingPos.x, pendingPos.y, { zoom: 1, duration: 400 });
     } catch { /* handled upstream */ }
   }
 
@@ -442,172 +392,119 @@ function NodeGraphManagerInner({
     } catch { /* handled upstream */ }
   }
 
-  async function handleDelete(id: number) {
-    try {
-      await onDeleteNode(id);
-      closePanel();
-    } catch { /* handled upstream */ }
+  async function handleDeleteNode(id: number) {
+    try { await onDeleteNode(id); setEditingNode(null); setPendingPos(null); }
+    catch { /* handled upstream */ }
   }
 
-  // ── derived ───────────────────────────────────────────────────────────────
+  // ── search ───────────────────────────────────────────────────────────────────
 
-  const pendingParentNode = pendingParentId ? nodes.find((n) => n.id === pendingParentId) ?? null : null;
-  const showPanel = panelMode !== null;
-  const inCreation = creationStep !== null;
-
-  const stepInstruction =
-    creationStep === "select-parent" ? "부모 노드를 클릭하거나, 빈 공간을 클릭해 루트로 배치하세요"
-    : creationStep === "placing"     ? "그래프에서 원하는 위치를 클릭하세요"
-    : "위치가 설정됐습니다. '내용 추가하기'를 눌러 계속하세요.";
-
-  // ─────────────────────────────────────────────────────────────────────────
-
-  if (showPanel) {
-    return (
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex items-center gap-3 px-5 h-12 bg-white border-b border-gray-200 shrink-0">
-          <button onClick={closePanel}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors">
-            <ArrowRight size={14} className="rotate-180" />
-            그래프로 돌아가기
-          </button>
-          <div className="w-px h-4 bg-gray-200" />
-          <span className="text-xs text-gray-400">
-            {panelMode === "create"
-              ? `새 노드 · (${Math.round(pendingPos?.x ?? 0)}, ${Math.round(pendingPos?.y ?? 0)})${pendingParentNode ? ` · 부모: ${pendingParentNode.title}` : " · 루트"}`
-              : `편집 중: ${editingNode?.title ?? ""}`}
-          </span>
-        </div>
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          <NodeDetail
-            node={panelMode === "edit" ? editingNode : null}
-            allNodes={nodes}
-            isNew={panelMode === "create"}
-            parentId={pendingParentId}
-            pendingPosition={panelMode === "create" ? pendingPos : null}
-            onSave={panelMode === "create" ? handleSaveNew : handleSaveEdit}
-            onDelete={handleDelete}
-            onReposition={
-              panelMode === "edit" && editingNode
-                ? () => onStartReposition(editingNode)
-                : undefined
-            }
-            onClose={closePanel}
-            saving={saving}
-          />
-        </div>
-      </div>
-    );
+  function centerOnNode(docNode: DocumentNode) {
+    setCenter(docNode.pos_x ?? 0, docNode.pos_y ?? 0, { zoom: 1, duration: 400 });
+    setPendingPos(null);
+    setEditingNode(docNode);
+    setShowSearch(false); setSearchQuery("");
   }
+
+  const searchResults = searchQuery.trim()
+    ? nodes.filter((n) => n.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : [];
+
+  // ── derived ──────────────────────────────────────────────────────────────────
+
+  const rootNode    = nodes.find((n) => n.title === "Root" || (n.node_kind as string) === "root");
+  const edgeSrcNode = edgeSourceId ? nodes.find((n) => n.id === edgeSourceId) : null;
+  const delSrcNode  = deletingEdge ? nodes.find((n) => n.id === deletingEdge.source_id) : null;
+  const delTgtNode  = deletingEdge ? nodes.find((n) => n.id === deletingEdge.target_id) : null;
+
+  const modeHint: Record<GraphMode, string> = {
+    "default":    "노드 클릭 → 우측 패널에서 편집 · 엣지 클릭 → 삭제",
+    "add-node":   "빈 캔버스를 클릭해 노드를 배치하세요",
+    "add-edge":   edgeSourceId ? "타겟 노드를 클릭하세요 · 빈 공간 클릭으로 취소" : "소스 노드를 클릭하세요",
+    "reposition": `새 위치를 클릭하세요 · "${editingNode?.title ?? ""}"`,
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <GraphContext.Provider value={{
-      hoveredId,
-      selectedId: null,
-      editingId: editingNode?.id ?? null,
-      pendingParentId,
-      setHoveredId,
-    }}>
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        <div className="flex-1 flex flex-col min-h-0 relative bg-[#F5F7FA]">
+    <GraphContext.Provider value={{ hoveredId, editingId: editingNode?.id ?? null, edgeSourceId, graphMode, setHoveredId }}>
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
-          {/* Top bar */}
-          <div className="flex items-center gap-3 px-4 h-12 bg-white border-b border-gray-200 shrink-0">
-            {!inCreation ? (
-              <>
-                <button onClick={startCreation}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium transition-colors">
-                  <Plus size={12} />
-                  새 노드
+        {/* ── Top toolbar (full width) ──────────────────────────────────────── */}
+        <div className="flex items-center gap-2 px-4 h-12 bg-white border-b border-gray-200 shrink-0">
+
+          {/* Mode buttons */}
+          <div className="flex items-center gap-1 shrink-0">
+            <ModeBtn active={graphMode === "default"} onClick={() => switchMode("default")}>
+              기본
+            </ModeBtn>
+            <ModeBtn active={graphMode === "add-node"} accent="blue"
+              onClick={() => switchMode(graphMode === "add-node" ? "default" : "add-node")}>
+              <Plus size={11} className="mr-1" />노드 추가
+            </ModeBtn>
+            <ModeBtn active={graphMode === "add-edge"} accent="orange"
+              onClick={() => switchMode(graphMode === "add-edge" ? "default" : "add-edge")}>
+              <ArrowRight size={11} className="mr-1" />엣지 추가
+            </ModeBtn>
+          </div>
+
+          {/* Hint / source pill */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-xs text-gray-400 italic truncate hidden md:block">
+              {modeHint[graphMode]}
+            </span>
+            {graphMode === "add-edge" && edgeSrcNode && (
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                {edgeSrcNode.title}
+                <button onClick={() => { setEdgeSourceId(null); hideGhosts(); }}>
+                  <X size={10} className="ml-0.5 text-orange-400 hover:text-orange-700" />
                 </button>
-                <span className="text-xs text-gray-400">노드를 클릭해 선택하거나 새 노드를 추가하세요</span>
-              </>
-            ) : (
+              </span>
+            )}
+            {graphMode === "reposition" && (
+              <button
+                onClick={() => { switchMode("default"); }}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors shrink-0"
+              >
+                <X size={11} />취소
+              </button>
+            )}
+          </div>
+
+          {/* Controls */}
+          <div className="flex items-center gap-1 shrink-0">
+            <CtrlBtn onClick={() => zoomIn()} title="확대"><ZoomIn size={13} /></CtrlBtn>
+            <CtrlBtn onClick={() => zoomOut()} title="축소"><ZoomOut size={13} /></CtrlBtn>
+            <CtrlBtn onClick={() => setViewport({ x: 0, y: 0, zoom: 1 })} title="초기화"><Maximize2 size={13} /></CtrlBtn>
+            {rootNode && (
               <>
-                <StepPill num={1} label="부모 선택" done={creationStep !== "select-parent"} />
-                <div className="w-5 h-px bg-gray-300" />
-                <StepPill num={2} label="위치 설정"
-                  active={creationStep === "placing"}
-                  done={creationStep === "placed" || panelMode === "create"} />
-                <div className="w-5 h-px bg-gray-300" />
-                <StepPill num={3} label="내용 입력" active={panelMode === "create"} />
-                <span className="ml-2 text-xs text-gray-400 italic hidden sm:block">{stepInstruction}</span>
-                <div className="flex-1" />
-                <button onClick={cancelCreation}
-                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors">
-                  <X size={12} />
-                  취소
+                <div className="w-px h-4 bg-gray-200 mx-1" />
+                <button
+                  onClick={() => setCenter(rootNode.pos_x ?? 0, rootNode.pos_y ?? 0, { zoom: 1, duration: 500 })}
+                  title="Root 노드로 이동"
+                  className="px-2.5 py-1 rounded-md bg-white hover:bg-amber-50 text-amber-600 border border-amber-200 shadow-sm text-[11px] font-bold transition-colors"
+                >
+                  ROOT
                 </button>
               </>
             )}
-
-            <div className={clsx("flex items-center gap-1", !inCreation && "ml-auto")}>
-              <CtrlBtn onClick={() => zoomIn()} title="확대"><ZoomIn size={13} /></CtrlBtn>
-              <CtrlBtn onClick={() => zoomOut()} title="축소"><ZoomOut size={13} /></CtrlBtn>
-              <CtrlBtn onClick={() => setViewport({ x: 0, y: 0, zoom: 1 })} title="초기화">
-                <Maximize2 size={13} />
-              </CtrlBtn>
-              <div className="w-px h-4 bg-gray-200 mx-1" />
-              <CtrlBtn onClick={() => { setShowSearch(v => !v); setSearchQuery(""); }} title="노드 검색">
-                <Search size={13} />
-              </CtrlBtn>
-            </div>
+            <div className="w-px h-4 bg-gray-200 mx-1" />
+            <CtrlBtn onClick={() => { setShowSearch((v) => !v); setSearchQuery(""); }} title="검색">
+              <Search size={13} />
+            </CtrlBtn>
           </div>
+        </div>
 
-          {/* Search panel */}
-          {showSearch && (
-            <div className="absolute top-12 right-4 z-30 w-72">
-              <div className="relative">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                <input ref={searchInputRef} type="text" value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Escape" && setShowSearch(false)}
-                  placeholder="노드 제목으로 검색..."
-                  className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-gray-200 rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    <X size={11} />
-                  </button>
-                )}
-              </div>
-              {searchResults.length > 0 && (
-                <div className="mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-80 overflow-y-auto">
-                  {searchResults.map((node) => {
-                    const abs = computeAbsPositions(nodes).get(node.id);
-                    return (
-                      <button key={node.id}
-                        onClick={() => { centerOnNode(node); setSearchQuery(""); setShowSearch(false); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
-                        <span className={clsx("shrink-0 w-2 h-2 rounded-full",
-                          node.node_kind === "category" ? "bg-violet-500"
-                          : node.node_kind === "file" ? "bg-emerald-500" : "bg-blue-500")} />
-                        <span className="flex-1 text-xs text-gray-800 truncate font-medium">{node.title}</span>
-                        {abs && (
-                          <span className="text-[10px] text-gray-400 font-mono shrink-0">
-                            ({Math.round(abs.x)}, {Math.round(abs.y)})
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {searchQuery.trim() && searchResults.length === 0 && (
-                <div className="mt-1.5 bg-white border border-gray-200 rounded-xl shadow-md px-3 py-3">
-                  <p className="text-xs text-gray-400">검색 결과가 없습니다</p>
-                </div>
-              )}
-            </div>
-          )}
+        {/* ── Main area: canvas + right panel ──────────────────────────────── */}
+        <div className="flex-1 flex min-h-0 overflow-hidden">
 
-          {/* ReactFlow canvas */}
+          {/* Canvas */}
           <div
-            ref={wrapperRef}
+            ref={canvasRef}
             className="flex-1 relative overflow-hidden"
-            onMouseMove={handleWrapperMouseMove}
-            onMouseLeave={handleWrapperMouseLeave}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseLeave={hideGhosts}
           >
             <ReactFlow
               nodes={rfNodes}
@@ -620,66 +517,155 @@ function NodeGraphManagerInner({
               nodesConnectable={false}
               onNodeClick={handleNodeClick}
               onPaneClick={handlePaneClick}
+              onEdgeClick={handleEdgeClick}
               fitView={false}
               proOptions={{ hideAttribution: true }}
               style={{
                 background: "#F5F7FA",
-                cursor: creationStep === "placing" ? "crosshair" : undefined,
+                cursor: graphMode === "add-node" || graphMode === "reposition" ? "crosshair"
+                       : graphMode === "add-edge" ? "pointer" : undefined,
               }}
               className="w-full h-full"
             >
               <Background variant={BackgroundVariant.Dots} gap={40} size={1.5} color="#d1d5db" />
             </ReactFlow>
 
-            {/* Ghost cursor preview (placing mode) — DOM-manipulated */}
-            <div
-              ref={ghostRef}
-              className="fixed pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2"
-              style={{ display: "none" }}
-            >
+            {/* Ghost node cursor */}
+            <div ref={ghostNodeRef} className="fixed pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2" style={{ display: "none" }}>
               <svg width={14} height={14} style={{ overflow: "visible" }}>
                 <circle cx={7} cy={7} r={7}
-                  fill="#3b82f620" stroke="#3b82f6"
+                  fill={graphMode === "reposition" ? "#f9731620" : "#3b82f620"}
+                  stroke={graphMode === "reposition" ? "#f97316" : "#3b82f6"}
                   strokeWidth={1.5} strokeDasharray="3,2" />
               </svg>
             </div>
 
-            {/* Ghost edge preview SVG overlay */}
+            {/* Ghost edge */}
             <svg className="fixed inset-0 w-screen h-screen pointer-events-none z-40">
-              <line
-                ref={ghostEdgeRef}
-                stroke="#93c5fd" strokeWidth={1.5} strokeDasharray="6,3"
-                style={{ display: "none" }}
-              />
+              <line ref={ghostEdgeRef} stroke="#f97316" strokeWidth={1.5} strokeDasharray="6,3" style={{ display: "none" }} />
             </svg>
-          </div>
 
-          {/* Bottom action panel — 노드 추가 중 "placed" 단계에서만 표시 */}
-          {creationStep === "placed" && pendingPos && (
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20">
-              <div className="flex items-center gap-3 bg-white border border-blue-300 rounded-xl px-4 py-3 shadow-lg">
-                <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                  <Check size={13} className="text-blue-600" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-gray-900">위치 설정 완료</p>
-                  <p className="text-[10px] text-gray-400 font-mono">
-                    ({Math.round(pendingPos.x)}, {Math.round(pendingPos.y)})
-                    {pendingParentNode ? ` · 부모: ${pendingParentNode.title}` : " · 루트 노드"}
-                  </p>
-                </div>
-                <div className="w-px h-8 bg-gray-200" />
-                <button onClick={openCreatePanel}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium transition-colors shrink-0">
-                  내용 추가하기 <ArrowRight size={12} />
-                </button>
-                <button
-                  onClick={() => { setPendingPos(null); setCreationStep("placing"); }}
-                  className="text-xs text-gray-400 hover:text-gray-700 transition-colors shrink-0">
-                  다시 선택
+            {/* Reposition banner */}
+            {graphMode === "reposition" && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-white border border-blue-200 rounded-xl px-4 py-2.5 shadow-lg">
+                <MapPin size={13} className="text-blue-500" />
+                <p className="text-xs font-medium text-gray-800">새 위치를 클릭하세요</p>
+                <button onClick={() => switchMode("default")} className="ml-1 text-xs text-gray-400 hover:text-gray-700">
+                  <X size={11} />
                 </button>
               </div>
-            </div>
+            )}
+
+            {/* Edge delete confirm */}
+            {deletingEdge && (
+              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20">
+                <div className="flex items-center gap-3 bg-white border border-red-200 rounded-xl px-4 py-3 shadow-lg">
+                  <Trash2 size={14} className="text-red-500 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-900">엣지 삭제</p>
+                    <p className="text-[10px] text-gray-400 font-mono">
+                      {delSrcNode?.title ?? "?"} → {delTgtNode?.title ?? "?"}
+                    </p>
+                  </div>
+                  <div className="w-px h-8 bg-gray-200" />
+                  <button onClick={doDeleteEdge}
+                    className="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors shrink-0">
+                    삭제
+                  </button>
+                  <button onClick={() => setDeletingEdge(null)}
+                    className="text-xs text-gray-400 hover:text-gray-700 shrink-0">
+                    취소
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Search dropdown */}
+            {showSearch && (
+              <div className="absolute top-3 right-3 z-30 w-72">
+                <div className="relative">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <input ref={searchInputRef} type="text" value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Escape" && setShowSearch(false)}
+                    placeholder="노드 제목으로 검색..."
+                    className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-gray-200 rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X size={11} />
+                    </button>
+                  )}
+                </div>
+                {searchResults.length > 0 && (
+                  <div className="mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                    {searchResults.map((node) => (
+                      <button key={node.id} onClick={() => centerOnNode(node)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                        <span className={clsx("shrink-0 w-2 h-2 rounded-full",
+                          node.node_kind === "category" ? "bg-violet-500"
+                          : node.node_kind === "file" ? "bg-emerald-500" : "bg-blue-500")} />
+                        <span className="flex-1 text-xs text-gray-800 truncate font-medium">{node.title}</span>
+                        <span className="text-[10px] text-gray-400 font-mono shrink-0">
+                          ({Math.round(node.pos_x ?? 0)}, {Math.round(node.pos_y ?? 0)})
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {searchQuery.trim() && searchResults.length === 0 && (
+                  <div className="mt-1.5 bg-white border border-gray-200 rounded-xl shadow-md px-3 py-3">
+                    <p className="text-xs text-gray-400">검색 결과가 없습니다</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Resize handle + Right panel ──────────────────────────────── */}
+          {showPanel && (
+            <>
+              {/* Drag handle — dragging left widens panel, right narrows */}
+              <div
+                onMouseDown={handleResizeStart}
+                className="w-1.5 shrink-0 bg-gray-200 hover:bg-blue-400 active:bg-blue-500 cursor-col-resize transition-colors z-10 group"
+                title="드래그해서 패널 크기 조정"
+              >
+                <div className="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="w-px h-8 bg-blue-300 rounded-full" />
+                </div>
+              </div>
+
+              {/* Detail panel */}
+              <div
+                style={{ width: panelWidth }}
+                className="shrink-0 flex flex-col min-h-0 overflow-hidden bg-[#F5F7FA]"
+              >
+                {/* Panel header */}
+                <div className="flex items-center justify-between px-4 h-10 bg-white border-b border-gray-200 shrink-0">
+                  <span className="text-xs text-gray-500 truncate">
+                    {panelIsNew
+                      ? `새 노드 · (${Math.round(pendingPos!.x)}, ${Math.round(pendingPos!.y)})`
+                      : `편집 중: ${editingNode?.title ?? ""}`}
+                  </span>
+                  <button onClick={closePanel}
+                    className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0">
+                    <X size={13} />
+                  </button>
+                </div>
+
+                <NodeDetail
+                  node={panelIsNew ? null : editingNode}
+                  isNew={panelIsNew}
+                  pendingPosition={panelIsNew ? pendingPos : null}
+                  onSave={panelIsNew ? handleSaveNew : handleSaveEdit}
+                  onDelete={handleDeleteNode}
+                  onReposition={!panelIsNew && editingNode ? startReposition : undefined}
+                  onClose={closePanel}
+                  saving={saving}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -687,7 +673,7 @@ function NodeGraphManagerInner({
   );
 }
 
-// ─── exported component ───────────────────────────────────────────────────────
+// ─── exported wrapper ─────────────────────────────────────────────────────────
 
 export default function NodeGraphManager(props: Props) {
   return (
@@ -699,25 +685,23 @@ export default function NodeGraphManager(props: Props) {
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 
-function StepPill({ num, label, done, active }: {
-  num: number; label: string; done?: boolean; active?: boolean;
+function ModeBtn({ children, active, onClick, accent = "gray" }: {
+  children: React.ReactNode; active: boolean; onClick: () => void; accent?: "gray" | "blue" | "orange";
 }) {
+  const cls = {
+    gray:   { on: "bg-gray-800 text-white",   off: "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50" },
+    blue:   { on: "bg-blue-500 text-white",   off: "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50" },
+    orange: { on: "bg-orange-500 text-white", off: "bg-white text-orange-600 border border-orange-200 hover:bg-orange-50" },
+  }[accent];
   return (
-    <div className={clsx("flex items-center gap-1.5 text-xs font-medium",
-      done ? "text-green-600" : active ? "text-blue-600" : "text-gray-400")}>
-      <span className={clsx("w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
-        done ? "bg-green-100" : active ? "bg-blue-100" : "bg-gray-100")}>
-        {done ? <Check size={9} /> : num}
-      </span>
-      <span className="hidden sm:block">{label}</span>
-    </div>
+    <button onClick={onClick}
+      className={clsx("flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", active ? cls.on : cls.off)}>
+      {children}
+    </button>
   );
 }
 
-
-function CtrlBtn({ onClick, title, children }: {
-  onClick: () => void; title?: string; children: React.ReactNode;
-}) {
+function CtrlBtn({ onClick, title, children }: { onClick: () => void; title?: string; children: React.ReactNode }) {
   return (
     <button onClick={onClick} title={title}
       className="w-7 h-7 flex items-center justify-center rounded-md bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-700 border border-gray-200 shadow-sm transition-colors">

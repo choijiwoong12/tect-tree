@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { DocumentNode, Announcement } from "./types";
+import type { DocumentNode, NodeEdge, Announcement } from "./types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder";
@@ -71,6 +71,38 @@ export async function updateNode(
 export async function deleteNode(id: number): Promise<void> {
   const { error } = await supabase
     .from("document_nodes")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+// ─── Edges ───────────────────────────────────────────────────────────────────
+
+export async function fetchAllEdges(): Promise<NodeEdge[]> {
+  const { data, error } = await supabase
+    .from("node_edges")
+    .select("*")
+    .order("id", { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createEdge(sourceId: number, targetId: number): Promise<NodeEdge> {
+  const { data, error } = await supabase
+    .from("node_edges")
+    .insert({ source_id: sourceId, target_id: targetId })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteEdge(id: number): Promise<void> {
+  const { error } = await supabase
+    .from("node_edges")
     .delete()
     .eq("id", id);
 
