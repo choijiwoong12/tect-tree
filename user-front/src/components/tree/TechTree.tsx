@@ -63,9 +63,10 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
   function handleContentNodeClick(info: ContentNodeInfo) {
     if (info.isUnlocked || unlockedIds.has(info.nodeId)) {
       openViewer(info.nodeId, info.title)
-    } else {
+    } else if (info.isUnlockable) {
       setUnlockTarget(info)
     }
+    // 인접한 해금 노드가 없으면 아무 반응 없음 (잠긴 채로 유지)
   }
 
   async function handleUnlock(method: 'rp' | 'subscription') {
