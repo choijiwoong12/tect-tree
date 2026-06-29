@@ -11,6 +11,9 @@ import { formatCallsign } from "@/lib/callsign/data";
 export function InfoPanel({
   user,
   showMember,
+  lastNode,
+  progress = 0,
+  onLastNodeClick,
   onEditCallsign,
   onOpenCustomerService,
   onOpenNotice,
@@ -20,6 +23,9 @@ export function InfoPanel({
 }: {
   user: User | null;
   showMember: boolean;
+  lastNode?: { id: number; title: string } | null;
+  progress?: number;
+  onLastNodeClick?: () => void;
   onEditCallsign?: () => void;
   onOpenCustomerService?: () => void;
   onOpenNotice?: () => void;
@@ -46,6 +52,9 @@ export function InfoPanel({
         <MemberInfo
           user={user}
           subscribed={subscribed}
+          lastNode={lastNode}
+          progress={progress}
+          onLastNodeClick={onLastNodeClick}
           onEditCallsign={onEditCallsign}
           onOpenCustomerService={onOpenCustomerService}
           onOpenNotice={onOpenNotice}
@@ -78,6 +87,9 @@ function BusinessInfo() {
 function MemberInfo({
   user,
   subscribed,
+  lastNode,
+  progress = 0,
+  onLastNodeClick,
   onEditCallsign,
   onOpenCustomerService,
   onOpenNotice,
@@ -86,6 +98,9 @@ function MemberInfo({
 }: {
   user: User;
   subscribed?: boolean;
+  lastNode?: { id: number; title: string } | null;
+  progress?: number;
+  onLastNodeClick?: () => void;
   onEditCallsign?: () => void;
   onOpenCustomerService?: () => void;
   onOpenNotice?: () => void;
@@ -111,15 +126,27 @@ function MemberInfo({
       <div className="absolute left-0 top-[50px]">
         <span className="inline-block w-[112px]">CLEARANCE</span>: LEVEL 1
       </div>
-      {/* LAST NOD — TODO: 직전 열람 노드, 클릭 시 해당 노드로 이동 */}
-      <div className="absolute left-0 top-[69px]">
-        <span className="inline-block w-[112px]">LAST NOD</span>: -
+      {/* LAST NOD — 마지막 열람 노드. 클릭 시 해당 노드를 그래프 중앙으로 이동 */}
+      <div className="absolute left-0 top-[69px] flex w-full items-baseline">
+        <span className="inline-block w-[112px] shrink-0">LAST NOD</span>
+        <span className="shrink-0">:&nbsp;</span>
+        {lastNode ? (
+          <button
+            onClick={onLastNodeClick}
+            title={lastNode.title}
+            className="min-w-0 truncate text-left transition-colors hover:text-white/70"
+          >
+            {lastNode.title}
+          </button>
+        ) : (
+          <span>-</span>
+        )}
       </div>
       <div className="absolute left-0 top-[88px]">
         <span className="inline-block w-[112px]" />:
       </div>
       <div className="absolute left-0 top-[107px]">
-        <span className="inline-block w-[112px]">PROGRESS</span>: 0.00 %
+        <span className="inline-block w-[112px]">PROGRESS</span>: {progress.toFixed(2)} %
       </div>
 
       <div className="absolute left-0 top-[150px]">

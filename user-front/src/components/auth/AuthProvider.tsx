@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
 import type { User } from "@/types/api";
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // INITIAL_SESSION 포함해서 모든 auth 이벤트 처리 — refresh 시 세션 유지
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: AuthChangeEvent, session: Session | null) => {
         clearTimeout(failsafe);
         try {
           if (session) {

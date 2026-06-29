@@ -19,6 +19,15 @@
   display: none;
 }
 
+/* 트리 별자리 모드 — 줌아웃 시 회색(미열람) 연결선을 페이드아웃, 흰색만 남김 */
+.react-flow__edge {
+  transition: opacity 0.3s ease;
+}
+.tree-zoomed-out .react-flow__edge.rf-dim-edge {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* document viewer HTML 렌더링 */
 .document-body h1 { font-size: 1.5rem; font-weight: bold; margin: 2rem 0 1rem; }
 .document-body h2 { font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 0.75rem; }

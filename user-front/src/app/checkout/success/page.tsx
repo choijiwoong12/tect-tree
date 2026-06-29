@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 
@@ -9,8 +9,12 @@ function CheckoutSuccessContent() {
   const router = useRouter()
   const { refreshUser } = useAuth()
   const [error, setError] = useState('')
+  // confirm은 주문당 한 번만 — StrictMode 이중 실행/리렌더로 중복 승인되는 것을 막는다.
+  const confirmedRef = useRef(false)
 
   useEffect(() => {
+    if (confirmedRef.current) return
+
     const paymentKey = searchParams.get('paymentKey')
     const orderId = searchParams.get('orderId')
     const amount = searchParams.get('amount')
@@ -20,7 +24,7 @@ function CheckoutSuccessContent() {
       return
     }
 
-    let cancelled = false
+    confirmedRef.current = true
     ;(async () => {
       try {
         const { createClient } = await import('@/lib/supabase/client')
@@ -40,15 +44,11 @@ function CheckoutSuccessContent() {
 
         await refreshUser()
         // 성공 → 별도 완료 화면 없이 인트로(메인)로.
-        if (!cancelled) router.replace('/')
+        router.replace('/')
       } catch (err) {
-        if (!cancelled) setError((err as Error).message)
+        setError((err as Error).message)
       }
     })()
-
-    return () => {
-      cancelled = true
-    }
   }, [searchParams, refreshUser, router])
 
   if (error) {

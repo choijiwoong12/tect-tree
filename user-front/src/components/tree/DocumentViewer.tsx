@@ -28,6 +28,7 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
   const [mounted, setMounted] = useState(false);
   const [isLightMode, setIsLightMode] = useState(false);
   const [content, setContent] = useState<NodeContent | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sections, setSections] = useState<string[]>([]);
   const [readCount, setReadCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -42,20 +43,37 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
         fetch(`/api/nodes/content?id=${nodeId}`),
         fetch(`/api/nodes/progress?id=${nodeId}`),
       ]);
-      if (!contentRes.ok) return;
+      if (!contentRes.ok) {
+        const err = await contentRes.json().catch(() => ({}));
+        setLoadError(
+          contentRes.status === 403
+            ? '열람 권한이 없습니다. (구독 만료 또는 미해금)'
+            : err?.error || '문서를 불러오지 못했습니다.',
+        );
+        return;
+      }
       const data: NodeContent = await contentRes.json();
       setContent(data);
 
       const items = parseIndexItems(data.index_items);
       setSections(items.length > 0 ? items : ['전체']);
 
+      let existingReadItems: string[] = [];
       if (progressRes.ok) {
         const { read_items } = await progressRes.json() as { read_items: string[] };
+        existingReadItems = read_items ?? [];
         if (read_items?.length) {
           const maxRead = Math.max(...read_items.map(Number).filter((n) => !isNaN(n)));
           setReadCount(isFinite(maxRead) ? maxRead + 1 : 0);
         }
       }
+
+      // 방문 기록 — updated_at 갱신해 '마지막 열람 노드'로 남긴다(기존 진행도 보존).
+      fetch('/api/nodes/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId, readItems: existingReadItems }),
+      }).catch(() => {});
     }
     load();
   }, [nodeId]);
@@ -140,6 +158,13 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
                 dangerouslySetInnerHTML={{ __html: content.body_content ?? '' }}
               />
             </>
+          ) : loadError ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+              <p className="font-pixel text-sm text-red-500">{loadError}</p>
+              <button onClick={onClose} className="font-pixel text-xs text-white/60 underline">
+                닫기
+              </button>
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center">
               <div className="h-2 w-2 animate-ping rounded-full bg-red-500" />

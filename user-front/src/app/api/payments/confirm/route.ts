@@ -25,8 +25,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Amount mismatch' }, { status: 400 })
     }
 
-    if (order.status !== 'pending') {
-      return NextResponse.json({ error: 'Order is not pending' }, { status: 409 })
+    // 멱등 처리 — 이미 완료된 주문이면 새로고침/중복 confirm에도 성공 응답
+    if (order.status === 'paid') {
+      return NextResponse.json({ success: true, alreadyPaid: true })
+    }
+    if (order.status !== 'pending' && order.status !== 'processing') {
+      return NextResponse.json({ error: 'Order is not payable' }, { status: 409 })
+    }
+
+    // 동시 중복 confirm 방지 — pending → processing CAS. 한 요청만 Toss 승인을 진행한다.
+    const { data: claimed } = await supabaseAdmin
+      .from('orders')
+      .update({ status: 'processing' })
+      .eq('id', order.id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) {
+      // 다른 요청이 선점 → 잠깐 대기 후 결과 확인 (StrictMode 이중 호출 등)
+      await new Promise((r) => setTimeout(r, 1500))
+      const { data: after } = await supabaseAdmin
+        .from('orders')
+        .select('status')
+        .eq('id', order.id)
+        .single()
+      if (after?.status === 'paid') {
+        return NextResponse.json({ success: true, alreadyPaid: true })
+      }
+      return NextResponse.json({ error: '결제 처리 중입니다. 잠시 후 다시 확인해주세요.' }, { status: 409 })
     }
 
     // 2. Confirm Payment with Toss API
@@ -51,7 +78,8 @@ export async function POST(request: Request) {
 
     if (!tossRes.ok) {
       const errorData = await tossRes.json()
-      // Mark as failed in DB
+      // 승인 실패 → 주문을 다시 pending으로 되돌려 재시도 가능하게 + 실패 기록
+      await supabaseAdmin.from('orders').update({ status: 'pending' }).eq('id', order.id)
       await supabaseAdmin.from('payments').insert({
         user_id: userId,
         order_row_id: order.id,

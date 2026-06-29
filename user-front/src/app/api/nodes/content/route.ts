@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdminDb } from '@/lib/supabase/admin-db'
+import { isSubscribed } from '@/lib/subscription'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -19,15 +20,19 @@ export async function GET(req: Request) {
   if (error || !node) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   // is_locked=false 노드는 로그인만 되면 무료 접근
-  // is_locked=true 노드는 user_node_access 확인
+  // is_locked=true 노드는 구독 중이거나(동적 접근) 접근권 행이 있으면(RP 구매=영구) 열람 가능
   if (node.is_locked) {
-    const { data: access } = await supabaseAdminDb
-      .from('user_node_access')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('node_id', nodeId)
-      .maybeSingle()
-    if (!access) return NextResponse.json({ error: 'No access' }, { status: 403 })
+    let ok = await isSubscribed(supabase, user.id)
+    if (!ok) {
+      const { data: access } = await supabaseAdminDb
+        .from('user_node_access')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('node_id', nodeId)
+        .maybeSingle()
+      ok = !!access
+    }
+    if (!ok) return NextResponse.json({ error: 'No access' }, { status: 403 })
   }
 
   return NextResponse.json(node)

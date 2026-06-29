@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 
 // Figma 디자인(1920×1080) 절대좌표 화면을 어떤 뷰포트든 비율 그대로 축소해 꽉 맞게 보여준다.
 const DESIGN_W = 1920;
 const DESIGN_H = 1080;
 
+// 페인트 전에 스케일을 잡아 scale=1로 한 프레임 번쩍이는 것을 막는다.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export function DesignFrame({ children }: { children: ReactNode }) {
   const [scale, setScale] = useState(1);
 
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     function update() {
       setScale(Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H));
     }
