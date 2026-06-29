@@ -33,9 +33,7 @@ function extractH1s(html: string): IndexItem[] {
 
 interface NodeDetailProps {
   node: DocumentNode | null;
-  allNodes: DocumentNode[];
   isNew: boolean;
-  parentId?: number | null;
   pendingPosition?: { x: number; y: number } | null;
   onSave: (data: Partial<DocumentNode>) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
@@ -46,9 +44,7 @@ interface NodeDetailProps {
 
 export default function NodeDetail({
   node,
-  allNodes,
   isNew,
-  parentId,
   pendingPosition,
   onSave,
   onDelete,
@@ -59,7 +55,6 @@ export default function NodeDetail({
   const [title, setTitle] = useState("");
   const [nodeKind, setNodeKind] = useState<NodeKind>("content");
   const [bodyContent, setBodyContent] = useState("");
-  const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [price, setPrice] = useState<string>("");
   const [indexItems, setIndexItems] = useState<IndexItem[]>([]);
@@ -70,7 +65,6 @@ export default function NodeDetail({
       setTitle("");
       setNodeKind("content");
       setBodyContent("");
-      setSelectedParentId(parentId ?? null);
       setIsLocked(true);
       setPrice("");
       setIndexItems([]);
@@ -78,15 +72,13 @@ export default function NodeDetail({
       setTitle(node.title);
       setNodeKind(node.node_kind);
       setBodyContent(node.body_content ?? "");
-      setSelectedParentId(node.parent_id);
       setIsLocked(node.is_locked);
       setPrice(node.price !== null && node.price !== undefined ? String(node.price) : "");
       setIndexItems(extractH1s(node.body_content ?? ""));
     }
     setConfirmDelete(false);
-  }, [node, isNew, parentId]);
+  }, [node, isNew]);
 
-  // Auto-sync index items whenever body content changes
   useEffect(() => {
     setIndexItems(extractH1s(bodyContent));
   }, [bodyContent]);
@@ -102,14 +94,11 @@ export default function NodeDetail({
     );
   }
 
-  const parentNode = allNodes.find((n) => n.id === selectedParentId);
-
   async function handleSave() {
     await onSave({
       title,
       node_kind: nodeKind,
       body_content: bodyContent || null,
-      parent_id: selectedParentId,
       is_locked: isLocked,
       price: price.trim() === "" ? null : parseInt(price.replace(/,/g, ""), 10),
       index_items: indexItems.length > 0 ? indexItems : null,
@@ -231,36 +220,10 @@ export default function NodeDetail({
                 />
               </div>
             </Field>
-
-            <Field label="부모 노드">
-              <select
-                value={selectedParentId ?? ""}
-                onChange={(e) =>
-                  setSelectedParentId(
-                    e.target.value === "" ? null : Number(e.target.value)
-                  )
-                }
-                className="input"
-              >
-                <option value="">없음 (루트)</option>
-                {allNodes
-                  .filter((n) => n.id !== node?.id)
-                  .map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {n.title}
-                    </option>
-                  ))}
-              </select>
-            </Field>
           </div>
 
           {/* Info row */}
           <div className="flex flex-wrap gap-3 pt-1">
-            {parentNode && (
-              <InfoPill icon={<Hash size={10} />}>
-                부모: {parentNode.title}
-              </InfoPill>
-            )}
             {isLocked && (
               <InfoPill icon={<Lock size={10} />} className="text-amber-700 bg-amber-50 border-amber-200">
                 잠금됨
@@ -274,26 +237,22 @@ export default function NodeDetail({
           </div>
         </div>
 
-        {/* Position settings */}
+        {/* Position info */}
         {(isNew ? !!pendingPosition : !!node) && (
           <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
             <SectionLabel icon={<MapPin size={12} />}>위치 설정</SectionLabel>
             <div className="flex items-center gap-3">
               <div className="flex-1 grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                    X 좌표
-                  </span>
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">X 좌표</span>
                   <span className="text-sm font-mono text-gray-700 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
-                    {isNew ? pendingPosition!.x : (node!.pos_x ?? 0)}
+                    {isNew ? Math.round(pendingPosition!.x) : Math.round(node!.pos_x ?? 0)}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                    Y 좌표
-                  </span>
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Y 좌표</span>
                   <span className="text-sm font-mono text-gray-700 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
-                    {isNew ? pendingPosition!.y : (node!.pos_y ?? 0)}
+                    {isNew ? Math.round(pendingPosition!.y) : Math.round(node!.pos_y ?? 0)}
                   </span>
                 </div>
               </div>
@@ -315,18 +274,14 @@ export default function NodeDetail({
           <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <SectionLabel icon={<List size={12} />}>목차 항목</SectionLabel>
-              <span className="text-[11px] text-gray-400">
-                유저 화면에서 진도 체크 항목으로 표시됩니다
-              </span>
+              <span className="text-[11px] text-gray-400">H1 제목으로 자동 생성</span>
             </div>
 
             {indexItems.length > 0 ? (
               <ul className="space-y-1.5">
                 {indexItems.map((item, idx) => (
                   <li key={item.id} className="flex items-center gap-2.5 py-1.5 px-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <span className="shrink-0 text-[11px] font-mono text-gray-300 w-4 text-right">
-                      {idx + 1}
-                    </span>
+                    <span className="shrink-0 text-[11px] font-mono text-gray-300 w-4 text-right">{idx + 1}</span>
                     <span className="flex-1 text-sm text-gray-700 truncate">{item.title}</span>
                   </li>
                 ))}
@@ -367,33 +322,25 @@ export default function NodeDetail({
         <p className="text-xs text-gray-400">
           {isNew ? "새 노드를 생성합니다" : `노드 #${node?.id} 수정`}
         </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSave}
-            disabled={saving || !title.trim()}
-            className={clsx(
-              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              saving || !title.trim()
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-600 text-white"
-            )}
-          >
-            <Save size={13} />
-            {saving ? "저장 중..." : "저장"}
-          </button>
-        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving || !title.trim()}
+          className={clsx(
+            "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+            saving || !title.trim()
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-blue-500 hover:bg-blue-600 text-white"
+          )}
+        >
+          <Save size={13} />
+          {saving ? "저장 중..." : "저장"}
+        </button>
       </div>
     </div>
   );
 }
 
-function SectionLabel({
-  icon,
-  children,
-}: {
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function SectionLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
       {icon}
@@ -402,15 +349,7 @@ function SectionLabel({
   );
 }
 
-function Field({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <label className={clsx("flex flex-col gap-1.5", className)}>
       <span className="text-xs font-medium text-gray-600">{label}</span>
@@ -419,22 +358,9 @@ function Field({
   );
 }
 
-function InfoPill({
-  icon,
-  children,
-  className,
-}: {
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-}) {
+function InfoPill({ icon, children, className }: { icon: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <div
-      className={clsx(
-        "flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] text-gray-500 bg-gray-50 border-gray-200",
-        className
-      )}
-    >
+    <div className={clsx("flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] text-gray-500 bg-gray-50 border-gray-200", className)}>
       {icon}
       {children}
     </div>

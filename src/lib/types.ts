@@ -7,7 +7,7 @@ export interface IndexItem {
 
 export interface DocumentNode {
   id: number;
-  parent_id: number | null;
+  parent_id?: number | null; // legacy — no longer used for graph structure
   title: string;
   node_kind: NodeKind;
   body_content: string | null;
@@ -16,10 +16,17 @@ export interface DocumentNode {
   file_path: string | null;
   is_locked: boolean;
   price: number | null;
-  pos_x: number | null;
-  pos_y: number | null;
+  pos_x: number | null; // absolute canvas position
+  pos_y: number | null; // absolute canvas position
   created_at?: string;
   updated_at?: string;
+}
+
+export interface NodeEdge {
+  id: number;
+  source_id: number;
+  target_id: number;
+  created_at?: string;
 }
 
 export interface NodeTreeItem extends DocumentNode {

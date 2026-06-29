@@ -19,7 +19,7 @@ function computeAbsPositions(nodes: DocumentNode[]): Map<number, { x: number; y:
     if (map.has(id)) return map.get(id)!;
     const node = nodes.find((n) => n.id === id);
     if (!node) return { x: 0, y: 0 };
-    if (node.parent_id === null) {
+    if (node.parent_id == null) {
       const pos = { x: node.pos_x ?? 0, y: node.pos_y ?? 0 };
       map.set(id, pos);
       return pos;

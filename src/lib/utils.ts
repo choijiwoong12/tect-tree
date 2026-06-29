@@ -9,7 +9,7 @@ export function buildTree(nodes: DocumentNode[]): NodeTreeItem[] {
   }
 
   for (const node of map.values()) {
-    if (node.parent_id === null) {
+    if (node.parent_id == null) {
       roots.push(node);
     } else {
       const parent = map.get(node.parent_id);
