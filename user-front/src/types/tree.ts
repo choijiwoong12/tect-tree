@@ -13,8 +13,13 @@ export interface TreeNodeDetail extends TreeNode {
   content: string | null;
 }
 
+export interface TreeEdge {
+  source: number;
+  target: number;
+}
+
 export interface TreeEditEvent {
-  event: "node.created" | "node.updated" | "node.deleted";
+  event: "node.created" | "node.updated" | "node.deleted" | "edge.created" | "edge.deleted";
   node_id: number;
   data: Partial<TreeNode> | null;
   actor_id: number;

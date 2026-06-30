@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { supabaseAdminDb } from '@/lib/supabase/admin-db'
 import { isSubscribed } from '@/lib/subscription'
 
-// index_items(jsonb)를 제목 문자열 배열로 정규화 — 문자열 배열 / {title} 배열 모두 대응
 function parseIndexItems(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   return raw.map((item) =>
@@ -11,22 +10,28 @@ function parseIndexItems(raw: unknown): string[] {
   )
 }
 
+function isRootNode(n: { node_kind: string | null; title: string }) {
+  return n.node_kind === 'root' || n.title === 'Root'
+}
+
 export async function GET() {
-  // 1. 현재 로그인 유저 확인 (user 프로젝트)
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 2. 어드민 DB에서 모든 노드 조회 (목차 index_items 포함)
-  const { data: nodes, error } = await supabaseAdminDb
-    .from('document_nodes')
-    .select('id, parent_id, title, node_kind, pos_x, pos_y, is_locked, price, index_items')
-    .order('id')
+  const [{ data: nodes, error }, { data: nodeEdges }] = await Promise.all([
+    supabaseAdminDb
+      .from('document_nodes')
+      .select('id, parent_id, title, node_kind, pos_x, pos_y, is_locked, price, index_items')
+      .order('id'),
+    supabaseAdminDb
+      .from('node_edges')
+      .select('id, source_id, target_id'),
+  ])
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // 3. 어드민 저장 viewport 조회
   const { data: setting } = await supabaseAdminDb
     .from('settings')
     .select('value')
@@ -34,13 +39,11 @@ export async function GET() {
     .single()
 
   const raw = setting?.value ?? { x: 0, y: 0, zoom: 1 }
-  // 어드민 캔버스는 사이드바(220px) 때문에 220px 오른쪽에서 시작하므로
-  // 유저(풀스크린)에서 동일한 화면 위치로 보이려면 viewport.x를 +220 보정한다
   const viewport = { ...raw, x: raw.x + 220 }
 
-  // 4. 로그인 상태라면:
-  //    - accessible(클릭 시 바로 열림 vs 해금모달): 무료 || 구매(user_node_access) || 구독중 잠긴노드
-  //    - viewed(시각=흰 큰 노드): 실제로 한 번이라도 연 노드(reading_progress 행 존재)
+  // 로그인 상태라면:
+  //  - accessible(클릭 시 바로 열림 vs 해금모달): 무료 || 구매(user_node_access) || 구독중 잠긴노드
+  //  - viewed(시각=흰 큰 노드): 실제로 한 번이라도 연 노드(reading_progress 행 존재)
   const unlockedSet = new Set<number>() // accessible
   const viewedSet = new Set<number>() // 열어본 적 있음
   const readCountByNode = new Map<number, number>()
@@ -70,10 +73,30 @@ export async function GET() {
   const unlockedIds = Array.from(unlockedSet)
   const viewedIds = Array.from(viewedSet)
 
-  // 5. 응답 — 노드마다 목차 제목(index_items)·개수(index_count)·읽은 개수(read_count).
-  //    잠긴 노드도 hover 시 목차 제목을 미리보기로 보여주므로 제목을 함께 내려준다.
+  // 인접 노드 게이팅: 잠긴 노드는 '이미 해금된 노드와 인접'할 때만 해금가능(is_adjacent_to_unlocked)
+  const adjacencyMap = new Map<number, number[]>()
+  for (const edge of nodeEdges ?? []) {
+    if (!adjacencyMap.has(edge.source_id)) adjacencyMap.set(edge.source_id, [])
+    if (!adjacencyMap.has(edge.target_id)) adjacencyMap.set(edge.target_id, [])
+    adjacencyMap.get(edge.source_id)!.push(edge.target_id)
+    adjacencyMap.get(edge.target_id)!.push(edge.source_id)
+  }
+
+  const nodeById = new Map((nodes ?? []).map((n) => [n.id, n]))
+
+  function isUnlockedById(id: number): boolean {
+    const n = nodeById.get(id)
+    if (!n) return false
+    if (isRootNode(n)) return true
+    return !n.is_locked || unlockedSet.has(id)
+  }
+
   const enriched = (nodes ?? []).map((n) => {
     const items = parseIndexItems(n.index_items)
+    const accessible = !n.is_locked || unlockedSet.has(Number(n.id))
+    const neighbors = adjacencyMap.get(n.id) ?? []
+    // Root is always unlockable; otherwise must be adjacent to an unlocked node
+    const isAdjacentToUnlocked = isRootNode(n) || neighbors.some((nid) => isUnlockedById(nid))
     return {
       id: n.id,
       parent_id: n.parent_id,
@@ -86,8 +109,20 @@ export async function GET() {
       index_count: items.length,
       index_items: items,
       read_count: readCountByNode.get(Number(n.id)) ?? 0,
+      is_adjacent_to_unlocked: isAdjacentToUnlocked,
     }
   })
 
-  return NextResponse.json({ nodes: enriched, unlocked_ids: unlockedIds, viewed_ids: viewedIds, viewport })
+  const edges = (nodeEdges ?? []).map((e) => ({
+    source: e.source_id,
+    target: e.target_id,
+  }))
+
+  return NextResponse.json({
+    nodes: enriched,
+    unlocked_ids: unlockedIds,
+    viewed_ids: viewedIds,
+    viewport,
+    edges,
+  })
 }

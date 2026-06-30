@@ -67,9 +67,10 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
     // 접근 가능(무료/구매/구독)하면 바로 열람(=열람한 노드로 전환), 아니면 해금 모달
     if (info.isUnlocked || viewedIds.has(info.nodeId)) {
       openViewer(info.nodeId, info.title)
-    } else {
+    } else if (info.isUnlockable) {
       setUnlockTarget(info)
     }
+    // 인접한 해금 노드가 없으면 아무 반응 없음 (잠긴 채로 유지)
   }
 
   async function handleUnlock(method: 'rp' | 'subscription') {
