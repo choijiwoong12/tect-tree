@@ -188,36 +188,11 @@ function NodeGraphManagerInner({
   const canvasRef    = useRef<HTMLDivElement>(null);
   const ghostNodeRef = useRef<HTMLDivElement>(null);
   const ghostEdgeRef = useRef<SVGLineElement>(null);
+  // 전체화면 편집 오버레이를 이 영역(캔버스+패널 행) 안에만 가두기 위한 포털 타겟
+  const [mainAreaEl, setMainAreaEl] = useState<HTMLDivElement | null>(null);
 
-  const [panelWidth, setPanelWidth] = useState(380);
-  const isResizing   = useRef(false);
-  const resizeStartX = useRef(0);
-  const resizeStartW = useRef(0);
-
-  function handleResizeStart(e: React.MouseEvent) {
-    e.preventDefault();
-    isResizing.current   = true;
-    resizeStartX.current = e.clientX;
-    resizeStartW.current = panelWidth;
-    document.body.style.cursor     = "col-resize";
-    document.body.style.userSelect = "none";
-
-    function onMove(ev: MouseEvent) {
-      if (!isResizing.current) return;
-      const dx  = resizeStartX.current - ev.clientX;
-      const nw  = Math.max(260, Math.min(680, resizeStartW.current + dx));
-      setPanelWidth(nw);
-    }
-    function onUp() {
-      isResizing.current             = false;
-      document.body.style.cursor     = "";
-      document.body.style.userSelect = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup",   onUp);
-    }
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup",   onUp);
-  }
+  // 패널 너비는 고정 — 더 넓게 보고 싶으면 NodeDetail의 "전체화면에서 편집" 버튼을 사용
+  const panelWidth = 380;
 
   const showPanel   = editingNode !== null || pendingPos !== null;
   const panelIsNew  = pendingPos !== null && editingNode === null;
@@ -590,7 +565,7 @@ function NodeGraphManagerInner({
         </div>
 
         {/* ── Main area: canvas + right panel ──────────────────────────────── */}
-        <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div ref={setMainAreaEl} className="flex-1 flex min-h-0 overflow-hidden relative">
 
           {/* Canvas — 유저 화면(TreeCanvas)과 동일한 어두운 배경 + DotNode 렌더링 */}
           <div
@@ -869,20 +844,9 @@ function NodeGraphManagerInner({
             )}
           </div>
 
-          {/* ── Resize handle + Right panel ──────────────────────────────── */}
+          {/* ── Right panel ─────────────────────────────────────────────── */}
           {showPanel && (
             <>
-              {/* Drag handle — dragging left widens panel, right narrows */}
-              <div
-                onMouseDown={handleResizeStart}
-                className="w-1.5 shrink-0 bg-gray-200 hover:bg-blue-400 active:bg-blue-500 cursor-col-resize transition-colors z-10 group"
-                title="드래그해서 패널 크기 조정"
-              >
-                <div className="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="w-px h-8 bg-blue-300 rounded-full" />
-                </div>
-              </div>
-
               {/* Detail panel */}
               <div
                 style={{ width: panelWidth }}
@@ -910,6 +874,7 @@ function NodeGraphManagerInner({
                   onReposition={!panelIsNew && editingNode ? startReposition : undefined}
                   onClose={closePanel}
                   saving={saving}
+                  fullscreenPortalTarget={mainAreaEl}
                 />
               </div>
             </>

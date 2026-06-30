@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Save,
@@ -13,6 +14,8 @@ import {
   FileText,
   MapPin,
   List,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import clsx from "clsx";
 import type { DocumentNode, IndexItem, NodeKind } from "@/lib/types";
@@ -40,6 +43,8 @@ interface NodeDetailProps {
   onReposition?: () => void;
   onClose: () => void;
   saving: boolean;
+  // 전체화면 편집 오버레이를 가둘 영역(캔버스+패널 행) — 사이드바/상단 헤더는 덮지 않는다
+  fullscreenPortalTarget?: HTMLElement | null;
 }
 
 export default function NodeDetail({
@@ -51,6 +56,7 @@ export default function NodeDetail({
   onReposition,
   onClose,
   saving,
+  fullscreenPortalTarget,
 }: NodeDetailProps) {
   const [title, setTitle] = useState("");
   const [nodeKind, setNodeKind] = useState<NodeKind>("content");
@@ -59,6 +65,16 @@ export default function NodeDetail({
   const [price, setPrice] = useState<string>("");
   const [indexItems, setIndexItems] = useState<IndexItem[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsFullscreen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isFullscreen]);
 
   useEffect(() => {
     if (isNew) {
@@ -157,6 +173,15 @@ export default function NodeDetail({
                 </button>
               )}
             </>
+          )}
+          {nodeKind !== "file" && (
+            <button
+              onClick={() => setIsFullscreen((v) => !v)}
+              title={isFullscreen ? "전체화면 종료" : "전체화면에서 편집"}
+              className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
           )}
           <button
             onClick={() => {
@@ -292,7 +317,7 @@ export default function NodeDetail({
         )}
 
         {/* Content editor */}
-        {nodeKind !== "file" && (
+        {nodeKind !== "file" && !isFullscreen && (
           <div className="space-y-2">
             <SectionLabel icon={<FileText size={12} />}>내용 에디터</SectionLabel>
             <RichEditor
@@ -301,6 +326,35 @@ export default function NodeDetail({
               placeholder="노드 내용을 입력하세요..."
             />
           </div>
+        )}
+
+        {/* 전체화면 편집 — 캔버스+패널 영역(사이드바/상단 헤더 제외) 안에만 포털로 가둬서 그린다.
+            대상 영역을 못 찾으면(예외 상황) fixed로 폴백. */}
+        {nodeKind !== "file" && isFullscreen && (
+          fullscreenPortalTarget
+            ? createPortal(
+                <FullscreenEditor
+                  title={title}
+                  bodyContent={bodyContent}
+                  setBodyContent={setBodyContent}
+                  saving={saving}
+                  onSave={handleSave}
+                  onClose={() => setIsFullscreen(false)}
+                  className="absolute inset-0"
+                />,
+                fullscreenPortalTarget
+              )
+            : (
+                <FullscreenEditor
+                  title={title}
+                  bodyContent={bodyContent}
+                  setBodyContent={setBodyContent}
+                  saving={saving}
+                  onSave={handleSave}
+                  onClose={() => setIsFullscreen(false)}
+                  className="fixed inset-0"
+                />
+              )
         )}
 
         {nodeKind === "file" && node?.file_name && (
@@ -315,10 +369,7 @@ export default function NodeDetail({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-5 py-3 bg-white border-t border-gray-200 shrink-0">
-        <p className="text-xs text-gray-400">
-          {isNew ? "새 노드를 생성합니다" : `노드 #${node?.id} 수정`}
-        </p>
+      <div className="flex items-center justify-end px-5 py-3 bg-white border-t border-gray-200 shrink-0">
         <button
           onClick={handleSave}
           disabled={saving || !title.trim()}
@@ -342,6 +393,55 @@ function SectionLabel({ icon, children }: { icon: React.ReactNode; children: Rea
     <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
       {icon}
       {children}
+    </div>
+  );
+}
+
+function FullscreenEditor({
+  title, bodyContent, setBodyContent, saving, onSave, onClose, className,
+}: {
+  title: string;
+  bodyContent: string;
+  setBodyContent: (html: string) => void;
+  saving: boolean;
+  onSave: () => void;
+  onClose: () => void;
+  className: string;
+}) {
+  return (
+    <div className={clsx(className, "z-50 bg-[#F5F7FA] flex flex-col")}>
+      <div className="flex items-center justify-between px-5 py-3.5 bg-white border-b border-gray-200 shrink-0">
+        <SectionLabel icon={<FileText size={12} />}>{title || "내용 에디터"}</SectionLabel>
+      </div>
+      <div className="flex-1 min-h-0 overflow-hidden p-5">
+        <RichEditor
+          content={bodyContent}
+          onChange={setBodyContent}
+          placeholder="노드 내용을 입력하세요..."
+          fullscreen
+        />
+      </div>
+      <div className="flex items-center justify-end gap-2 px-5 py-3 bg-white border-t border-gray-200 shrink-0">
+        <button
+          onClick={onClose}
+          className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+        >
+          닫기
+        </button>
+        <button
+          onClick={onSave}
+          disabled={saving || !title.trim()}
+          className={clsx(
+            "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+            saving || !title.trim()
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-blue-500 hover:bg-blue-600 text-white"
+          )}
+        >
+          <Save size={13} />
+          {saving ? "저장 중..." : "저장"}
+        </button>
+      </div>
     </div>
   );
 }
