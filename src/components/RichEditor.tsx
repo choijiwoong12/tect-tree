@@ -88,6 +88,7 @@ interface RichEditorProps {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  fullscreen?: boolean;
 }
 
 interface JsonNode {
@@ -106,7 +107,7 @@ function extractToc(json: { content?: JsonNode[] }): TocItem[] {
     }));
 }
 
-export default function RichEditor({ content, onChange, placeholder }: RichEditorProps) {
+export default function RichEditor({ content, onChange, placeholder, fullscreen }: RichEditorProps) {
   const [toc, setToc] = useState<TocItem[]>([]);
   const [showToc, setShowToc] = useState(false);
   // 마지막으로 onChange에 전달한 HTML을 기억해서 불필요한 setContent 호출을 막음
@@ -153,9 +154,15 @@ export default function RichEditor({ content, onChange, placeholder }: RichEdito
   const currentFontSize = editor.getAttributes("textStyle").fontSize ?? "";
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+    <div className={clsx(
+      "border border-gray-200 rounded-xl overflow-hidden bg-white",
+      fullscreen && "h-full flex flex-col"
+    )}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50">
+      <div className={clsx(
+        "flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50",
+        fullscreen && "shrink-0"
+      )}>
         {/* Font size */}
         <select
           value={currentFontSize}
@@ -327,8 +334,16 @@ export default function RichEditor({ content, onChange, placeholder }: RichEdito
       </div>
 
       {/* Editor */}
-      <div className="px-4 py-3">
-        <EditorContent editor={editor} />
+      <div className={clsx("px-4 py-3", fullscreen && "flex-1 overflow-y-auto")}>
+        <div
+          className={fullscreen ? "cursor-text" : undefined}
+          style={fullscreen ? { minHeight: "70vh" } : undefined}
+          onClick={(e) => {
+            if (fullscreen && e.target === e.currentTarget) editor.commands.focus("end");
+          }}
+        >
+          <EditorContent editor={editor} />
+        </div>
       </div>
     </div>
   );

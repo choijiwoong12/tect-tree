@@ -10,16 +10,12 @@ import {
 } from "react";
 import {
   ReactFlow,
-  Background,
-  BackgroundVariant,
   useNodesState,
   useEdgesState,
   useReactFlow,
   useNodesInitialized,
   useViewport,
   ReactFlowProvider,
-  Handle,
-  Position,
   type Node,
   type Edge,
   type NodeProps,
@@ -30,8 +26,38 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import type { DocumentNode, NodeEdge, TreeLevel } from "@/lib/types";
-import { findRootNode, resolveNodeLevel } from "@/lib/utils";
+import { findRootNode } from "@/lib/utils";
 import NodeDetail from "./NodeDetail";
+import { DotNode } from "./DotNode";
+import { DetailVisibleContext } from "./treeViewContext";
+
+// 줌이 이 값 아래로 내려가면 별자리 모드(유저 화면과 동일) — 라벨/목차 숨기고 레벨 타원 표시
+const ADMIN_ZOOM_OUT_THRESHOLD = 0.4;
+const LEVEL_LABEL_SIZE = 25;
+const EDGE_ACTIVE = { stroke: "#ffffff", strokeWidth: 2 };
+const EDGE_DELETING = { stroke: "#ef4444", strokeWidth: 2 };
+
+function isRootDocNode(n: DocumentNode) {
+  return n.title === "Root" || (n.node_kind as string) === "root";
+}
+
+// DocumentNode → DotNode가 기대하는 유저 화면 data 포맷. 관리자는 항상 '전체 펼침'으로 본다
+// (잠금/열람 상태와 무관하게 항상 크고 라벨이 보이는 상태) — 편집 중엔 모든 정보가 보이는 게 우선이라서.
+function buildDotData(docNode: DocumentNode): Record<string, unknown> {
+  if (isRootDocNode(docNode)) {
+    return { isRoot: true, isLoggedIn: true, label: docNode.title };
+  }
+  const indexItems = (docNode.index_items ?? []).map((item) =>
+    typeof item === "string" ? item : (item as { title?: string }).title ?? ""
+  );
+  return {
+    label: docNode.title,
+    isViewed: true,
+    indexItems,
+    indexCount: indexItems.length,
+    readCount: indexItems.length,
+  };
+}
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -57,93 +83,51 @@ const GraphContext = createContext<GraphCtx>({
   setHoveredId: () => {},
 });
 
-// ─── node styling ─────────────────────────────────────────────────────────────
-
-function nodeColor(kind: string) {
-  switch (kind) {
-    case "category": return { fill: "#7c3aed", stroke: "#c4b5fd" };
-    case "file":     return { fill: "#059669", stroke: "#6ee7b7" };
-    default:         return { fill: "#2563eb", stroke: "#93c5fd" };
-  }
-}
-
-function nodeRadius(kind: string) {
-  switch (kind) {
-    case "category": return 10;
-    case "file":     return 6;
-    default:         return 7;
-  }
-}
-
 // ─── custom node ─────────────────────────────────────────────────────────────
+// 유저 화면과 똑같은 DotNode를 그대로 쓰고, 편집 상태(선택/엣지 소스/엣지 타겟 후보)만
+// 가는 링으로 얹는다 — DotNode 자체는 건드리지 않아 유저가 보는 모습과 항상 동일하다.
 
 type DocNodeData = { docNode: DocumentNode };
 
-function ManagerNodeComponent({ data }: NodeProps) {
-  const { docNode } = data as DocNodeData;
-  const { hoveredId, editingId, edgeSourceId, graphMode, levels, setHoveredId } = useContext(GraphContext);
+function AdminTreeNode(props: NodeProps) {
+  const { docNode } = props.data as DocNodeData;
+  const { hoveredId, editingId, edgeSourceId, graphMode, setHoveredId } = useContext(GraphContext);
   const id = docNode.id;
-  const isRoot = docNode.title === "Root" || (docNode.node_kind as string) === "root";
-  const r = isRoot ? nodeRadius(docNode.node_kind) + 3 : nodeRadius(docNode.node_kind);
-  const { fill, stroke } = isRoot ? { fill: "#ef4444", stroke: "#fecaca" } : nodeColor(docNode.node_kind);
+  const isRoot = isRootDocNode(docNode);
 
   const isEditing = editingId === id;
   const isEdgeSrc = edgeSourceId === id;
-  const isHovered = hoveredId === id;
-  const isAddEdge = graphMode === "add-edge";
-  const showLevels = graphMode === "default" || graphMode === "edit-levels";
-  const nodeLevel = showLevels ? resolveNodeLevel(docNode, levels) : null;
+  const isHoverTarget = graphMode === "add-edge" && hoveredId === id && !isEdgeSrc;
 
-  const circleFill   = isEditing ? "#ef4444" : isEdgeSrc ? "#f97316" : fill;
-  const circleStroke = isEditing ? "#dc2626"
-    : isEdgeSrc  ? "#ea580c"
-    : isHovered && isAddEdge ? "#22c55e"
-    : isHovered  ? "#1e293b"
-    : stroke;
-  const sw = isEditing || isEdgeSrc ? 2.5 : isHovered ? 2 : 1.5;
+  const ring = isEditing ? { color: "#ef4444", dashed: false }
+    : isEdgeSrc      ? { color: "#f97316", dashed: true }
+    : isHoverTarget  ? { color: "#22c55e", dashed: false }
+    : null;
+  const ringSize = isRoot ? 52 : 42;
 
   return (
     <div
-      style={{ width: r * 2, height: r * 2, position: "relative", cursor: "pointer" }}
+      className="relative"
+      style={{ cursor: "pointer" }}
       onMouseEnter={() => setHoveredId(id)}
       onMouseLeave={() => setHoveredId(null)}
     >
-      <Handle type="target" position={Position.Top}
-        style={{ opacity: 0, left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />
-      <svg width={r * 2} height={r * 2} style={{ overflow: "visible", display: "block" }}>
-        {isRoot ? (
-          <rect
-            x={r - r * 0.72} y={r - r * 0.72} width={r * 1.44} height={r * 1.44}
-            transform={`rotate(45 ${r} ${r})`}
-            fill={circleFill} stroke={circleStroke} strokeWidth={sw}
-          />
-        ) : (
-          <circle cx={r} cy={r} r={r} fill={circleFill} stroke={circleStroke} strokeWidth={sw} />
-        )}
-        {isEdgeSrc && (
-          <circle cx={r} cy={r} r={r + 4} fill="none" stroke="#f97316" strokeWidth={1.5} strokeDasharray="3,2" />
-        )}
-      </svg>
-      <Handle type="source" position={Position.Bottom}
-        style={{ opacity: 0, left: "50%", bottom: "auto", top: "50%", transform: "translate(-50%,-50%)" }} />
-      <div style={{
-        position: "absolute", top: r * 2 + 4, left: "50%",
-        transform: "translateX(-50%)", whiteSpace: "nowrap",
-        fontSize: docNode.node_kind === "category" ? 12 : 11,
-        fontFamily: "monospace", pointerEvents: "none",
-        fontWeight: docNode.node_kind === "category" || isRoot ? 700 : 400,
-        color: isEditing ? "#ef4444" : isEdgeSrc ? "#f97316"
-          : isRoot ? "#ef4444"
-          : nodeLevel?.color ? nodeLevel.color
-          : isHovered ? "#111827" : "#6b7280",
-      }}>
-        {docNode.title}
-      </div>
+      {ring && (
+        <div
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            left: "50%", top: "50%", transform: "translate(-50%, -50%)",
+            width: ringSize, height: ringSize,
+            border: `2px ${ring.dashed ? "dashed" : "solid"} ${ring.color}`,
+          }}
+        />
+      )}
+      <DotNode {...props} data={buildDotData(docNode)} />
     </div>
   );
 }
 
-const nodeTypes = { managerNode: ManagerNodeComponent };
+const nodeTypes = { dot: AdminTreeNode };
 
 // ─── props ────────────────────────────────────────────────────────────────────
 
@@ -178,6 +162,8 @@ function NodeGraphManagerInner({
   const viewport = useViewport();
   const nodesInitialized = useNodesInitialized();
   const centerDone = useRef(false);
+  // 줌아웃 시 유저 화면과 동일하게 라벨/목차를 숨기고 별자리 모드로 전환
+  const zoomedOut = viewport.zoom < ADMIN_ZOOM_OUT_THRESHOLD;
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -202,36 +188,11 @@ function NodeGraphManagerInner({
   const canvasRef    = useRef<HTMLDivElement>(null);
   const ghostNodeRef = useRef<HTMLDivElement>(null);
   const ghostEdgeRef = useRef<SVGLineElement>(null);
+  // 전체화면 편집 오버레이를 이 영역(캔버스+패널 행) 안에만 가두기 위한 포털 타겟
+  const [mainAreaEl, setMainAreaEl] = useState<HTMLDivElement | null>(null);
 
-  const [panelWidth, setPanelWidth] = useState(380);
-  const isResizing   = useRef(false);
-  const resizeStartX = useRef(0);
-  const resizeStartW = useRef(0);
-
-  function handleResizeStart(e: React.MouseEvent) {
-    e.preventDefault();
-    isResizing.current   = true;
-    resizeStartX.current = e.clientX;
-    resizeStartW.current = panelWidth;
-    document.body.style.cursor     = "col-resize";
-    document.body.style.userSelect = "none";
-
-    function onMove(ev: MouseEvent) {
-      if (!isResizing.current) return;
-      const dx  = resizeStartX.current - ev.clientX;
-      const nw  = Math.max(260, Math.min(680, resizeStartW.current + dx));
-      setPanelWidth(nw);
-    }
-    function onUp() {
-      isResizing.current             = false;
-      document.body.style.cursor     = "";
-      document.body.style.userSelect = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup",   onUp);
-    }
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup",   onUp);
-  }
+  // 패널 너비는 고정 — 더 넓게 보고 싶으면 NodeDetail의 "전체화면에서 편집" 버튼을 사용
+  const panelWidth = 380;
 
   const showPanel   = editingNode !== null || pendingPos !== null;
   const panelIsNew  = pendingPos !== null && editingNode === null;
@@ -243,12 +204,13 @@ function NodeGraphManagerInner({
       id: String(n.id),
       position: { x: n.pos_x ?? 0, y: n.pos_y ?? 0 },
       data: { docNode: n },
-      type: "managerNode",
+      type: "dot",
       draggable: false,
+      zIndex: 10,
     })));
   }, [nodes, setRfNodes]);
 
-  // ── sync rfEdges ────────────────────────────────────────────────────────────
+  // ── sync rfEdges (유저 화면과 동일한 흰 굵은 선 — 관리자는 항상 전체 펼침이라 모두 활성) ─────
 
   useEffect(() => {
     setRfEdges(edges.map((e): Edge => ({
@@ -256,9 +218,7 @@ function NodeGraphManagerInner({
       source: String(e.source_id),
       target: String(e.target_id),
       type: "straight",
-      style: deletingEdge?.id === e.id
-        ? { stroke: "#ef4444", strokeWidth: 2 }
-        : { stroke: "#e2e8f0", strokeWidth: 1 },
+      style: deletingEdge?.id === e.id ? EDGE_DELETING : EDGE_ACTIVE,
     })));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [edges, deletingEdge, setRfEdges]);
@@ -605,43 +565,79 @@ function NodeGraphManagerInner({
         </div>
 
         {/* ── Main area: canvas + right panel ──────────────────────────────── */}
-        <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div ref={setMainAreaEl} className="flex-1 flex min-h-0 overflow-hidden relative">
 
-          {/* Canvas */}
+          {/* Canvas — 유저 화면(TreeCanvas)과 동일한 어두운 배경 + DotNode 렌더링 */}
           <div
             ref={canvasRef}
-            className="flex-1 relative overflow-hidden"
+            className="flex-1 relative overflow-hidden bg-black"
             onMouseMove={handleCanvasMouseMove}
             onMouseLeave={hideGhosts}
           >
-            <ReactFlow
-              nodes={rfNodes}
-              edges={rfEdges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              nodeTypes={nodeTypes}
-              nodeOrigin={[0.5, 0.5]}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              onNodeClick={handleNodeClick}
-              onPaneClick={handlePaneClick}
-              onEdgeClick={handleEdgeClick}
-              fitView={false}
-              minZoom={0.02}
-              maxZoom={3}
-              proOptions={{ hideAttribution: true }}
-              style={{
-                background: "#F5F7FA",
-                cursor: graphMode === "add-node" || graphMode === "reposition" ? "crosshair"
-                       : graphMode === "add-edge" ? "pointer" : undefined,
-              }}
-              className="w-full h-full"
-            >
-              <Background variant={BackgroundVariant.Dots} gap={40} size={1.5} color="#d1d5db" />
-            </ReactFlow>
+            {/* Noise overlay (유저 화면과 동일) */}
+            <div className="athena-noise pointer-events-none absolute inset-0 z-0" />
 
-            {/* Level boundary ellipses (레벨마다 독립된 중심·가로/세로 반경) — 기본 모드에선 표시만, 편집 모드에선 핸들도 표시 */}
-            {(graphMode === "default" || graphMode === "edit-levels") && localLevels.length > 0 && (
+            <div className={clsx("absolute inset-0 z-[1]", zoomedOut && "tree-zoomed-out")}>
+              <DetailVisibleContext.Provider value={!zoomedOut}>
+                <ReactFlow
+                  nodes={rfNodes}
+                  edges={rfEdges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  nodeTypes={nodeTypes}
+                  nodeOrigin={[0.5, 0.5]}
+                  nodesDraggable={false}
+                  nodesConnectable={false}
+                  onNodeClick={handleNodeClick}
+                  onPaneClick={handlePaneClick}
+                  onEdgeClick={handleEdgeClick}
+                  fitView={false}
+                  minZoom={0.02}
+                  maxZoom={3}
+                  proOptions={{ hideAttribution: true }}
+                  colorMode="dark"
+                  style={{
+                    background: "transparent",
+                    cursor: graphMode === "add-node" || graphMode === "reposition" ? "crosshair"
+                           : graphMode === "add-edge" ? "pointer" : undefined,
+                  }}
+                  className="w-full h-full"
+                />
+              </DetailVisibleContext.Provider>
+            </div>
+
+            {/* 레벨 타원 — 기본 모드: 유저 화면과 동일하게 줌아웃했을 때만 흰 타원 + 라벨로 페이드인 */}
+            {graphMode === "default" && localLevels.length > 0 && (
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none z-10 transition-opacity duration-500"
+                style={{ overflow: "visible", opacity: zoomedOut ? 1 : 0 }}
+              >
+                <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.zoom})`}>
+                  {localLevels.map((lvl) => (
+                    <g key={lvl.id}>
+                      <ellipse
+                        cx={lvl.center_x} cy={lvl.center_y} rx={lvl.radius_x} ry={lvl.radius_y}
+                        fill="none" stroke="#ffffff" strokeWidth={1 / viewport.zoom}
+                      />
+                      <text
+                        className="font-pixel"
+                        x={lvl.center_x - lvl.radius_x - (LEVEL_LABEL_SIZE / ADMIN_ZOOM_OUT_THRESHOLD) * 0.4}
+                        y={lvl.center_y}
+                        textAnchor="end"
+                        dominantBaseline="middle"
+                        fill="#ffffff"
+                        style={{ fontSize: LEVEL_LABEL_SIZE / ADMIN_ZOOM_OUT_THRESHOLD }}
+                      >
+                        {lvl.name.toUpperCase()}
+                      </text>
+                    </g>
+                  ))}
+                </g>
+              </svg>
+            )}
+
+            {/* 레벨 타원 — 편집 모드: 레벨별 색상 + 드래그 핸들 (편집 도구이므로 줌과 무관하게 항상 표시) */}
+            {graphMode === "edit-levels" && localLevels.length > 0 && (
               <svg
                 className="absolute inset-0 w-full h-full pointer-events-none z-10"
                 style={{ overflow: "visible" }}
@@ -660,7 +656,7 @@ function NodeGraphManagerInner({
                       strokeDasharray={`${6 / viewport.zoom},${4 / viewport.zoom}`}
                     />
                   ))}
-                  {graphMode === "edit-levels" && localLevels.map((lvl) => (
+                  {localLevels.map((lvl) => (
                     <g key={`handles-${lvl.id}`}>
                       {/* 중심 이동 핸들 */}
                       <g transform={`translate(${lvl.center_x} ${lvl.center_y}) scale(${1 / viewport.zoom})`}>
@@ -848,20 +844,9 @@ function NodeGraphManagerInner({
             )}
           </div>
 
-          {/* ── Resize handle + Right panel ──────────────────────────────── */}
+          {/* ── Right panel ─────────────────────────────────────────────── */}
           {showPanel && (
             <>
-              {/* Drag handle — dragging left widens panel, right narrows */}
-              <div
-                onMouseDown={handleResizeStart}
-                className="w-1.5 shrink-0 bg-gray-200 hover:bg-blue-400 active:bg-blue-500 cursor-col-resize transition-colors z-10 group"
-                title="드래그해서 패널 크기 조정"
-              >
-                <div className="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="w-px h-8 bg-blue-300 rounded-full" />
-                </div>
-              </div>
-
               {/* Detail panel */}
               <div
                 style={{ width: panelWidth }}
@@ -889,6 +874,7 @@ function NodeGraphManagerInner({
                   onReposition={!panelIsNew && editingNode ? startReposition : undefined}
                   onClose={closePanel}
                   saving={saving}
+                  fullscreenPortalTarget={mainAreaEl}
                 />
               </div>
             </>

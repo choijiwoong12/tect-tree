@@ -8,7 +8,6 @@ import {
   LogOut,
   ChevronRight,
   Megaphone,
-  Eye,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import clsx from "clsx";
@@ -22,7 +21,6 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { icon: <LayoutDashboard size={16} />, label: "대시보드",   tab: "dashboard" },
   { icon: <FolderTree    size={16} />, label: "노드 관리",  tab: "nodes" },
-  { icon: <Eye           size={16} />, label: "미리보기",   tab: "preview" },
   { icon: <Megaphone     size={16} />, label: "공지사항",   tab: "announcements" },
 ];
 
