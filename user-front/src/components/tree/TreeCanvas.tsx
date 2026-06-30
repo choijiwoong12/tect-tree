@@ -27,18 +27,25 @@ function isRootNode(n: ApiNode) {
   return n.node_kind === 'root' || n.title === 'Root'
 }
 
-// 노드가 '열람(흰색)' 상태인지 — 루트는 항상 활성, 그 외엔 로그인 + (무료거나 해금됨)
-function isNodeUnlocked(n: ApiNode, isLoggedIn: boolean, unlocked: Set<number>): boolean {
+// 접근 가능 여부(클릭 시 바로 열림 vs 해금모달) — 루트 항상, 그 외 로그인 + (무료거나 해금됨)
+function isNodeAccessible(n: ApiNode, isLoggedIn: boolean, accessible: Set<number>): boolean {
   if (isRootNode(n)) return true
   if (!isLoggedIn) return false
-  return !n.is_locked || unlocked.has(n.id)
+  return !n.is_locked || accessible.has(n.id)
 }
 
-// 해금 진행률(%) = 해금된 콘텐츠 노드 수 / 전체 콘텐츠 노드 수 (루트 제외). 흰 노드 비율과 동일.
-function computeProgress(nodes: ApiNode[], isLoggedIn: boolean, unlocked: Set<number>): number {
+// 시각상 '열람한(흰색·큰)' 상태인지 — 루트 항상, 그 외 로그인 + 실제로 열어본 노드
+function isNodeViewed(n: ApiNode, isLoggedIn: boolean, viewed: Set<number>): boolean {
+  if (isRootNode(n)) return true
+  if (!isLoggedIn) return false
+  return viewed.has(n.id)
+}
+
+// 진행률(%) = 열람한 콘텐츠 노드 수 / 전체 콘텐츠 노드 수 (루트 제외)
+function computeProgress(nodes: ApiNode[], isLoggedIn: boolean, viewed: Set<number>): number {
   const content = nodes.filter((n) => !isRootNode(n))
   if (content.length === 0) return 0
-  const open = content.filter((n) => isNodeUnlocked(n, isLoggedIn, unlocked)).length
+  const open = content.filter((n) => isNodeViewed(n, isLoggedIn, viewed)).length
   return (open / content.length) * 100
 }
 
@@ -115,8 +122,9 @@ interface TreeCanvasProps {
   onCenterClick?: () => void
   onOpenShop?: () => void
   onContentNodeClick?: (info: ContentNodeInfo) => void
-  sessionUnlockedIds?: Set<number>
-  // 해금 진행률(%) 보고 — 회원정보 PROGRESS 표시용
+  // 이번 세션에 새로 '열어본' 노드 — 즉시 흰색/큰 노드로 반영
+  sessionViewedIds?: Set<number>
+  // 진행률(%) 보고 — 회원정보 PROGRESS 표시용
   onProgress?: (percent: number) => void
 }
 
@@ -128,7 +136,7 @@ export interface TreeCanvasHandle {
 }
 
 export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function TreeCanvas(
-  { isLoggedIn, rootLabel, onLoginClick, onCenterClick, onContentNodeClick, sessionUnlockedIds, onProgress },
+  { isLoggedIn, rootLabel, onLoginClick, onCenterClick, onContentNodeClick, sessionViewedIds, onProgress },
   ref,
 ) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
@@ -137,9 +145,9 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
   const rootIdRef = useRef<string | null>(null)
   // 루트의 절대 flow 좌표 — 기본 화면/로고 리셋 시 루트를 디자인 좌표에 고정 배치하는 기준
   const rootAbsRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
-  // 엣지 스타일을 세션 해금 시 다시 계산하기 위해 원본 노드/해금셋 보관
+  // 세션 중 열람 시 엣지/시각 재계산을 위해 원본 노드 + 열람셋 보관
   const apiNodesRef = useRef<ApiNode[]>([])
-  const baseUnlockedRef = useRef<Set<number>>(new Set())
+  const baseViewedRef = useRef<Set<number>>(new Set())
   // 줌아웃 시 별자리 모드(회색 노드/엣지 숨김) — 디테일은 Context로 노드에, 엣지는 CSS로 처리
   const [zoomedOut, setZoomedOut] = useState(false)
 
@@ -148,13 +156,15 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
       try {
         const res = await fetch('/api/nodes/map')
         if (!res.ok) return
-        const { nodes: apiNodes, unlocked_ids }: {
+        const { nodes: apiNodes, unlocked_ids, viewed_ids }: {
           nodes: ApiNode[]
           unlocked_ids: number[]
+          viewed_ids?: number[]
         } = await res.json()
-        const unlockedSet = new Set(unlocked_ids)
+        const accessibleSet = new Set(unlocked_ids)
+        const viewedSet = new Set(viewed_ids ?? [])
         apiNodesRef.current = apiNodes
-        baseUnlockedRef.current = unlockedSet
+        baseViewedRef.current = viewedSet
 
         const adminRoot = apiNodes.find(isRootNode)
         rootIdRef.current = adminRoot ? String(adminRoot.id) : null
@@ -177,18 +187,22 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
                 }
               : {
                   label: n.title,
-                  isUnlocked: isLoggedIn ? !n.is_locked || unlockedSet.has(n.id) : false,
+                  // 시각: 열어본 적 있으면 흰색/큰 노드. 클릭 동작용 접근권은 별도(isAccessible).
+                  isViewed: isNodeViewed(n, !!isLoggedIn, viewedSet),
+                  isAccessible: isNodeAccessible(n, !!isLoggedIn, accessibleSet),
                   price: n.price,
                   indexItems: n.index_items ?? [],
                   indexCount: n.index_count ?? (n.index_items?.length ?? 0),
                   readCount: n.read_count ?? 0,
                 },
             draggable: false,
+            // 노드(동그라미+제목+목차) 그룹을 엣지 위로 올려 선이 글씨를 가리지 않게
+            zIndex: 10,
           }
         })
 
         // parent_id 관계 그대로 — id는 어드민 노드 id를 그대로 사용.
-        // 양끝이 모두 열람 상태면 굵은 흰 선(EDGE_ACTIVE), 아니면 dim.
+        // 양끝이 모두 '열람한' 노드면 굵은 흰 선(EDGE_ACTIVE), 아니면 dim.
         const byId = new Map(apiNodes.map((n) => [n.id, n]))
         const flowEdges: Edge[] = apiNodes
           .filter((n) => n.parent_id !== null)
@@ -196,8 +210,8 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
             const parent = byId.get(n.parent_id!)
             const active =
               !!parent &&
-              isNodeUnlocked(parent, !!isLoggedIn, unlockedSet) &&
-              isNodeUnlocked(n, !!isLoggedIn, unlockedSet)
+              isNodeViewed(parent, !!isLoggedIn, viewedSet) &&
+              isNodeViewed(n, !!isLoggedIn, viewedSet)
             return {
               id: `e-${n.parent_id}-${n.id}`,
               type: 'straight',
@@ -211,7 +225,7 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
 
         setNodes(flowNodes)
         setEdges(flowEdges)
-        onProgress?.(computeProgress(apiNodes, !!isLoggedIn, unlockedSet))
+        onProgress?.(computeProgress(apiNodes, !!isLoggedIn, viewedSet))
 
         // 루트를 디자인 좌표에 고정해 기본 화면 구성 (어드민 viewport 대신, DB 좌표는 불변)
         setTimeout(() => {
@@ -226,23 +240,23 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, rootLabel, setNodes, setEdges, setViewport])
 
-  // 세션 중 해금된 노드의 시각 상태를 즉시 업데이트 (흰 점 + 연결선 굵게)
+  // 세션 중 새로 열어본 노드의 시각 상태를 즉시 업데이트 (흰 큰 노드 + 연결선 굵게 + 진행률)
   useEffect(() => {
-    if (!sessionUnlockedIds || sessionUnlockedIds.size === 0) return
-    const combined = new Set<number>([...baseUnlockedRef.current, ...sessionUnlockedIds])
+    if (!sessionViewedIds || sessionViewedIds.size === 0) return
+    const combined = new Set<number>([...baseViewedRef.current, ...sessionViewedIds])
 
     setNodes((prev) =>
       prev.map((n) => {
         if (n.data.isRoot) return n
         const nodeId = Number(n.id)
-        if (sessionUnlockedIds.has(nodeId) && !n.data.isUnlocked) {
-          return { ...n, data: { ...n.data, isUnlocked: true } }
+        if (sessionViewedIds.has(nodeId) && !n.data.isViewed) {
+          return { ...n, data: { ...n.data, isViewed: true } }
         }
         return n
       }),
     )
 
-    // 양끝이 모두 열람 상태가 된 간선은 굵은 흰 선으로 갱신
+    // 양끝이 모두 '열람한' 노드가 된 간선은 굵은 흰 선으로 갱신
     const byId = new Map(apiNodesRef.current.map((n) => [n.id, n]))
     setEdges((prev) =>
       prev.map((e) => {
@@ -251,8 +265,8 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
         const active =
           !!parent &&
           !!child &&
-          isNodeUnlocked(parent, !!isLoggedIn, combined) &&
-          isNodeUnlocked(child, !!isLoggedIn, combined)
+          isNodeViewed(parent, !!isLoggedIn, combined) &&
+          isNodeViewed(child, !!isLoggedIn, combined)
         return {
           ...e,
           style: active ? EDGE_ACTIVE : EDGE_DIM,
@@ -262,7 +276,7 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
     )
 
     onProgress?.(computeProgress(apiNodesRef.current, !!isLoggedIn, combined))
-  }, [sessionUnlockedIds, isLoggedIn, setNodes, setEdges, onProgress])
+  }, [sessionViewedIds, isLoggedIn, setNodes, setEdges, onProgress])
 
   // 로고 클릭: 어드민 초기 viewport로 복귀 / 회원정보 버튼: 특정 노드를 중앙으로
   useImperativeHandle(
@@ -308,7 +322,8 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
         onContentNodeClick?.({
           nodeId: Number(node.id),
           title: node.data.label as string,
-          isUnlocked: node.data.isUnlocked as boolean,
+          // isUnlocked = 접근권(바로 열림 vs 해금모달). 시각 isViewed와 별개.
+          isUnlocked: node.data.isAccessible as boolean,
           price: node.data.price as number | null,
         })
       }

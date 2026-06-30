@@ -25,7 +25,8 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
   const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub' | 'notice'>(null)
   const [unlockTarget, setUnlockTarget] = useState<ContentNodeInfo | null>(null)
   const [viewerNodeId, setViewerNodeId] = useState<number | null>(null)
-  const [unlockedIds, setUnlockedIds] = useState<Set<number>>(new Set())
+  // 이번 세션에 새로 '열어본' 노드 — 즉시 흰색/큰 노드로 반영
+  const [viewedIds, setViewedIds] = useState<Set<number>>(new Set())
   // 마지막으로 열람한 노드 — 회원정보 LAST NOD 표시 + 클릭 시 센터링
   const [lastNode, setLastNode] = useState<{ id: number; title: string } | null>(null)
   // 해금 진행률(%) — 회원정보 PROGRESS
@@ -46,6 +47,8 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
   function openViewer(nodeId: number, title: string) {
     setViewerNodeId(nodeId)
     setLastNode({ id: nodeId, title })
+    // 한 번 열면 '열람한' 노드로 → 흰색/큰 노드로 즉시 전환
+    setViewedIds((prev) => (prev.has(nodeId) ? prev : new Set([...prev, nodeId])))
   }
 
   // 테스트용 회원탈퇴 — 유저 데이터 전체 삭제 + auth 계정 제거 후 인트로로 리셋
@@ -61,7 +64,8 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
   }
 
   function handleContentNodeClick(info: ContentNodeInfo) {
-    if (info.isUnlocked || unlockedIds.has(info.nodeId)) {
+    // 접근 가능(무료/구매/구독)하면 바로 열람(=열람한 노드로 전환), 아니면 해금 모달
+    if (info.isUnlocked || viewedIds.has(info.nodeId)) {
       openViewer(info.nodeId, info.title)
     } else {
       setUnlockTarget(info)
@@ -76,10 +80,9 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
       body: JSON.stringify({ nodeId: unlockTarget.nodeId, method }),
     })
     if (res.ok) {
-      setUnlockedIds((prev) => new Set([...prev, unlockTarget.nodeId]))
       const { nodeId, title } = unlockTarget
       setUnlockTarget(null)
-      openViewer(nodeId, title)
+      openViewer(nodeId, title) // 열람 → viewedIds 반영(흰색/큰 노드)
       if (method === 'rp') await refreshUser() // RP 잔액 갱신
     } else {
       const { error } = await res.json()
@@ -102,7 +105,7 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
           onCenterClick={() => setShowMember((v) => !v)}
           onOpenShop={() => setModal('shop')}
           onContentNodeClick={handleContentNodeClick}
-          sessionUnlockedIds={unlockedIds}
+          sessionViewedIds={viewedIds}
           onProgress={setProgress}
         />
       </ReactFlowProvider>

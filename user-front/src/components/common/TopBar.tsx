@@ -18,8 +18,8 @@ export function TopBar({ rp, onRpClick, onLogoClick, showLogout, onLogout }: Top
   return (
     <>
       <div className="absolute top-0 left-0 right-0 z-40 h-[74px] pointer-events-none">
-        {/* 빨간 선 */}
-        <div className="absolute left-0 right-0 top-[37px] h-px bg-[#FE0000]" />
+        {/* 빨간 선 — 로고/RP 위(앞)로 올려 글자 중앙을 가로지르게. 클릭은 통과(pointer-events-none) */}
+        <div className="pointer-events-none absolute left-0 right-0 top-[37px] z-10 h-px bg-[#FE0000]" />
 
         {/* 로고 — onLogoClick 있으면 클릭 시 메인으로 */}
         {onLogoClick ? (

@@ -38,10 +38,11 @@ export async function GET() {
   // 유저(풀스크린)에서 동일한 화면 위치로 보이려면 viewport.x를 +220 보정한다
   const viewport = { ...raw, x: raw.x + 220 }
 
-  // 4. 로그인 상태라면 해금된 노드 ID + 노드별 읽은 목차 수 조회
-  //    - user_node_access 행(RP 구매=purchase 등)은 영구 해금
-  //    - 구독 중이면 모든 잠긴 노드를 동적으로 해금(구독 끝나면 행이 없어 자동 재잠금)
-  const unlockedSet = new Set<number>()
+  // 4. 로그인 상태라면:
+  //    - accessible(클릭 시 바로 열림 vs 해금모달): 무료 || 구매(user_node_access) || 구독중 잠긴노드
+  //    - viewed(시각=흰 큰 노드): 실제로 한 번이라도 연 노드(reading_progress 행 존재)
+  const unlockedSet = new Set<number>() // accessible
+  const viewedSet = new Set<number>() // 열어본 적 있음
   const readCountByNode = new Map<number, number>()
   if (user) {
     const subscribed = await isSubscribed(supabase, user.id)
@@ -62,16 +63,17 @@ export async function GET() {
       .eq('user_id', user.id)
     for (const row of progress ?? []) {
       const items = Array.isArray(row.read_items) ? row.read_items : []
+      viewedSet.add(Number(row.node_id)) // 행이 있으면 = 한 번이라도 열람
       readCountByNode.set(Number(row.node_id), items.length)
     }
   }
   const unlockedIds = Array.from(unlockedSet)
+  const viewedIds = Array.from(viewedSet)
 
-  // 5. 응답 — 노드마다 목차 개수(index_count)와 읽은 개수(read_count) 부여.
-  //    목차 제목(index_items)은 해금된 노드만 노출(잠긴 노드는 개수만 = 원만 그림).
+  // 5. 응답 — 노드마다 목차 제목(index_items)·개수(index_count)·읽은 개수(read_count).
+  //    잠긴 노드도 hover 시 목차 제목을 미리보기로 보여주므로 제목을 함께 내려준다.
   const enriched = (nodes ?? []).map((n) => {
     const items = parseIndexItems(n.index_items)
-    const accessible = !n.is_locked || unlockedSet.has(Number(n.id))
     return {
       id: n.id,
       parent_id: n.parent_id,
@@ -82,10 +84,10 @@ export async function GET() {
       is_locked: n.is_locked,
       price: n.price,
       index_count: items.length,
-      index_items: accessible ? items : [],
+      index_items: items,
       read_count: readCountByNode.get(Number(n.id)) ?? 0,
     }
   })
 
-  return NextResponse.json({ nodes: enriched, unlocked_ids: unlockedIds, viewport })
+  return NextResponse.json({ nodes: enriched, unlocked_ids: unlockedIds, viewed_ids: viewedIds, viewport })
 }
