@@ -1,13 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
-import { Extension } from "@tiptap/core";
-import StarterKit from "@tiptap/starter-kit";
-import TextStyle from "@tiptap/extension-text-style";
-import Underline from "@tiptap/extension-underline";
-import TextAlign from "@tiptap/extension-text-align";
-import Highlight from "@tiptap/extension-highlight";
-import Placeholder from "@tiptap/extension-placeholder";
+import { EditorContent } from "@tiptap/react";
 import {
   Bold,
   Italic,
@@ -23,54 +16,8 @@ import {
   X,
 } from "lucide-react";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
-
-// Custom FontSize extension built on top of TextStyle
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    fontSize: {
-      setFontSize: (size: string) => ReturnType;
-      unsetFontSize: () => ReturnType;
-    };
-  }
-}
-
-const FontSize = Extension.create({
-  name: "fontSize",
-  addOptions() {
-    return { types: ["textStyle"] };
-  },
-  addGlobalAttributes() {
-    return [
-      {
-        types: this.options.types,
-        attributes: {
-          fontSize: {
-            default: null,
-            parseHTML: (el) => (el as HTMLElement).style.fontSize || null,
-            renderHTML: (attrs) =>
-              attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
-          },
-        },
-      },
-    ];
-  },
-  addCommands() {
-    return {
-      setFontSize:
-        (size: string) =>
-        ({ chain }) =>
-          chain().setMark("textStyle", { fontSize: size }).run(),
-      unsetFontSize:
-        () =>
-        ({ chain }) =>
-          chain()
-            .setMark("textStyle", { fontSize: null })
-            .removeEmptyTextStyle()
-            .run(),
-    };
-  },
-});
+import { useState } from "react";
+import { useNodeEditor } from "./useNodeEditor";
 
 const FONT_SIZES = [
   { label: "소 (12px)", value: "12px" },
@@ -79,90 +26,29 @@ const FONT_SIZES = [
   { label: "특대 (24px)", value: "24px" },
 ];
 
-interface TocItem {
-  level: number;
-  text: string;
-}
-
 interface RichEditorProps {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
-  fullscreen?: boolean;
 }
 
-interface JsonNode {
-  type?: string;
-  attrs?: Record<string, unknown>;
-  content?: JsonNode[];
-  text?: string;
-}
-
-function extractToc(json: { content?: JsonNode[] }): TocItem[] {
-  return (json.content ?? [])
-    .filter((n) => n.type === "heading")
-    .map((n) => ({
-      level: (n.attrs?.level as number) ?? 1,
-      text: n.content?.map((c) => c.text ?? "").join("") ?? "",
-    }));
-}
-
-export default function RichEditor({ content, onChange, placeholder, fullscreen }: RichEditorProps) {
-  const [toc, setToc] = useState<TocItem[]>([]);
+export default function RichEditor({ content, onChange, placeholder }: RichEditorProps) {
   const [showToc, setShowToc] = useState(false);
-  // 마지막으로 onChange에 전달한 HTML을 기억해서 불필요한 setContent 호출을 막음
-  const lastEmittedHtml = useRef<string>("");
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      TextStyle,
-      FontSize,
-      Underline,
-      Highlight.configure({ multicolor: false }),
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Placeholder.configure({
-        placeholder: placeholder ?? "노드 내용을 입력하세요...",
-      }),
-    ],
+  const { editor, toc } = useNodeEditor({
     content,
-    onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      lastEmittedHtml.current = html;
-      onChange(html);
-      setToc(extractToc(editor.getJSON()));
-    },
-    editorProps: {
-      attributes: {
-        class: "focus:outline-none min-h-[200px] prose prose-sm max-w-none",
-      },
-    },
+    onChange,
+    placeholder,
+    editorClass: "focus:outline-none min-h-[200px] prose prose-sm max-w-none",
   });
-
-  useEffect(() => {
-    // 자신이 내보낸 HTML이 다시 content로 들어올 때는 setContent를 호출하지 않음 (커서 리셋 방지)
-    if (editor && content !== lastEmittedHtml.current && content !== editor.getHTML()) {
-      lastEmittedHtml.current = content ?? "";
-      editor.commands.setContent(content ?? "");
-      setToc(extractToc(editor.getJSON()));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
 
   if (!editor) return null;
 
   const currentFontSize = editor.getAttributes("textStyle").fontSize ?? "";
 
   return (
-    <div className={clsx(
-      "border border-gray-200 rounded-xl overflow-hidden bg-white",
-      fullscreen && "h-full flex flex-col"
-    )}>
+    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
       {/* Toolbar */}
-      <div className={clsx(
-        "flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50",
-        fullscreen && "shrink-0"
-      )}>
+      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50">
         {/* Font size */}
         <select
           value={currentFontSize}
@@ -334,16 +220,8 @@ export default function RichEditor({ content, onChange, placeholder, fullscreen 
       </div>
 
       {/* Editor */}
-      <div className={clsx("px-4 py-3", fullscreen && "flex-1 overflow-y-auto")}>
-        <div
-          className={fullscreen ? "cursor-text" : undefined}
-          style={fullscreen ? { minHeight: "70vh" } : undefined}
-          onClick={(e) => {
-            if (fullscreen && e.target === e.currentTarget) editor.commands.focus("end");
-          }}
-        >
-          <EditorContent editor={editor} />
-        </div>
+      <div className="legacy-editor px-4 py-3">
+        <EditorContent editor={editor} />
       </div>
     </div>
   );
