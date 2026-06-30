@@ -1,4 +1,4 @@
-import type { DocumentNode, NodeTreeItem } from "./types";
+import type { DocumentNode, NodeTreeItem, TreeLevel } from "./types";
 
 export function buildTree(nodes: DocumentNode[]): NodeTreeItem[] {
   const map = new Map<number, NodeTreeItem>();
@@ -48,4 +48,37 @@ export function nodeKindColor(kind: string) {
     case "file": return "bg-emerald-100 text-emerald-700";
     default: return "bg-gray-100 text-gray-600";
   }
+}
+
+// ─── Levels (ROOT 거리 기반 자동 분류) ──────────────────────────────────────────
+
+export function findRootNode(nodes: DocumentNode[]): DocumentNode | undefined {
+  return nodes.find((n) => n.title === "Root" || (n.node_kind as string) === "root");
+}
+
+export function distanceFromRoot(
+  node: DocumentNode,
+  root: DocumentNode | undefined
+): number | null {
+  if (!root) return null;
+  const dx = (node.pos_x ?? 0) - (root.pos_x ?? 0);
+  const dy = (node.pos_y ?? 0) - (root.pos_y ?? 0);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * 노드가 속한 레벨을 거리 기준으로 실시간 계산한다 (노드 레코드에는 저장하지 않음).
+ * 모든 레벨의 반경보다 멀리 떨어진 노드는 가장 바깥(최대 radius) 레벨로 편입된다.
+ */
+export function resolveNodeLevel(
+  node: DocumentNode,
+  root: DocumentNode | undefined,
+  levels: TreeLevel[]
+): TreeLevel | null {
+  if (levels.length === 0) return null;
+  const distance = distanceFromRoot(node, root);
+  if (distance === null) return null;
+
+  const sorted = [...levels].sort((a, b) => a.radius - b.radius);
+  return sorted.find((lvl) => distance <= lvl.radius) ?? sorted[sorted.length - 1];
 }

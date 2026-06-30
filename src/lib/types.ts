@@ -43,3 +43,12 @@ export interface Announcement {
   created_at?: string;
   updated_at?: string;
 }
+
+export interface TreeLevel {
+  id: number;
+  name: string;
+  radius: number; // ROOT 기준 바운더리 반경 (바깥쪽 경계)
+  color: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
