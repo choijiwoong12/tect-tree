@@ -6,7 +6,6 @@ import { useState, useEffect, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import Sidebar from "@/components/Sidebar";
 import NodeGraphManager from "@/components/NodeGraphManager";
-import PreviewGraph from "@/components/PreviewGraph";
 import Dashboard from "@/components/Dashboard";
 import LoginPage from "@/components/LoginPage";
 import AnnouncementManager from "@/components/AnnouncementManager";
@@ -28,7 +27,7 @@ import {
 } from "@/lib/supabase";
 import { AlertTriangle } from "lucide-react";
 
-type Tab = "dashboard" | "nodes" | "search" | "settings" | "announcements" | "preview";
+type Tab = "dashboard" | "nodes" | "search" | "settings" | "announcements";
 
 export default function AdminPage() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -225,15 +224,13 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
               {tab === "search"        && "노드 검색"}
               {tab === "settings"      && "설정"}
               {tab === "announcements" && "공지사항 관리"}
-              {tab === "preview"       && "그래프 미리보기"}
             </h1>
             <p className="text-xs text-gray-400">
               {tab === "dashboard"     && "전체 현황"}
-              {tab === "nodes"         && `노드 ${nodes.length}개 · 엣지 ${edges.length}개`}
+              {tab === "nodes"         && `노드 ${nodes.length}개 · 엣지 ${edges.length}개 · 유저 화면과 동일한 그래프`}
               {tab === "search"        && "노드 검색"}
               {tab === "settings"      && "시스템 설정"}
               {tab === "announcements" && "공지 추가 · 편집 · 순서 변경"}
-              {tab === "preview"       && "유저 화면과 동일한 그래프 시뮬레이션"}
             </p>
           </div>
 
@@ -285,10 +282,6 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
               onUpdateLevel={handleUpdateLevel}
               onDeleteLevel={handleDeleteLevel}
             />
-          )}
-
-          {tab === "preview" && (
-            <PreviewGraph nodes={nodes} edges={edges} />
           )}
 
           {tab === "announcements" && <AnnouncementManager />}
