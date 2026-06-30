@@ -1,18 +1,25 @@
 "use client";
 
-import { FolderOpen, FileText, File, Lock, GitBranch } from "lucide-react";
-import type { DocumentNode } from "@/lib/types";
+import { FolderOpen, FileText, File, Lock, GitBranch, Target } from "lucide-react";
+import type { DocumentNode, TreeLevel } from "@/lib/types";
+import { resolveNodeLevel } from "@/lib/utils";
 
 interface DashboardProps {
   nodes: DocumentNode[];
+  levels: TreeLevel[];
 }
 
-export default function Dashboard({ nodes }: DashboardProps) {
+export default function Dashboard({ nodes, levels }: DashboardProps) {
   const categories = nodes.filter((n) => n.node_kind === "category").length;
   const contents = nodes.filter((n) => n.node_kind === "content").length;
   const files = nodes.filter((n) => n.node_kind === "file").length;
   const locked = nodes.filter((n) => n.is_locked).length;
   const roots = nodes.filter((n) => n.parent_id === null).length;
+
+  const levelCounts = levels.map((lvl) => ({
+    level: lvl,
+    count: nodes.filter((n) => resolveNodeLevel(n, levels)?.id === lvl.id).length,
+  }));
 
   const stats = [
     {
@@ -77,6 +84,39 @@ export default function Dashboard({ nodes }: DashboardProps) {
             </div>
           ))}
         </div>
+
+        {/* Level distribution */}
+        {levels.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200">
+            <div className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100">
+              <Target size={14} className="text-violet-500" />
+              <h3 className="text-sm font-semibold text-gray-900">레벨 분포</h3>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {levelCounts.map(({ level, count }) => {
+                const pct = nodes.length > 0 ? Math.round((count / nodes.length) * 100) : 0;
+                return (
+                  <div key={level.id} className="flex items-center gap-3 px-5 py-3">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: level.color ?? "#3b82f6" }}
+                    />
+                    <span className="text-sm text-gray-800 flex-1 truncate">{level.name}</span>
+                    <div className="w-28 h-1.5 rounded-full bg-gray-100 overflow-hidden shrink-0">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, backgroundColor: level.color ?? "#3b82f6" }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500 w-16 text-right shrink-0">
+                      {count.toLocaleString()}개 ({pct}%)
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Recent nodes */}
         <div className="bg-white rounded-xl border border-gray-200">

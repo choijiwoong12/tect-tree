@@ -45,7 +45,6 @@ interface GraphCtx {
   edgeSourceId: number | null;
   graphMode: GraphMode;
   levels: TreeLevel[];
-  rootNode: DocumentNode | undefined;
   setHoveredId: (id: number | null) => void;
 }
 
@@ -55,7 +54,6 @@ const GraphContext = createContext<GraphCtx>({
   edgeSourceId: null,
   graphMode: "default",
   levels: [],
-  rootNode: undefined,
   setHoveredId: () => {},
 });
 
@@ -83,7 +81,7 @@ type DocNodeData = { docNode: DocumentNode };
 
 function ManagerNodeComponent({ data }: NodeProps) {
   const { docNode } = data as DocNodeData;
-  const { hoveredId, editingId, edgeSourceId, graphMode, levels, rootNode, setHoveredId } = useContext(GraphContext);
+  const { hoveredId, editingId, edgeSourceId, graphMode, levels, setHoveredId } = useContext(GraphContext);
   const id = docNode.id;
   const r = nodeRadius(docNode.node_kind);
   const { fill, stroke } = nodeColor(docNode.node_kind);
@@ -92,8 +90,8 @@ function ManagerNodeComponent({ data }: NodeProps) {
   const isEdgeSrc = edgeSourceId === id;
   const isHovered = hoveredId === id;
   const isAddEdge = graphMode === "add-edge";
-  const isEditLevels = graphMode === "edit-levels";
-  const nodeLevel = isEditLevels ? resolveNodeLevel(docNode, rootNode, levels) : null;
+  const showLevels = graphMode === "default" || graphMode === "edit-levels";
+  const nodeLevel = showLevels ? resolveNodeLevel(docNode, levels) : null;
 
   const circleFill   = isEditing ? "#ef4444" : isEdgeSrc ? "#f97316" : fill;
   const circleStroke = isEditing ? "#dc2626"
@@ -149,8 +147,13 @@ interface Props {
   onDeleteNode: (id: number) => Promise<void>;
   onCreateEdge: (sourceId: number, targetId: number) => Promise<NodeEdge>;
   onDeleteEdge: (id: number) => Promise<void>;
-  onCreateLevel: (data: Pick<TreeLevel, "name" | "radius" | "color">) => Promise<TreeLevel>;
-  onUpdateLevel: (id: number, data: Partial<Pick<TreeLevel, "name" | "radius" | "color">>) => Promise<TreeLevel>;
+  onCreateLevel: (
+    data: Pick<TreeLevel, "name" | "center_x" | "center_y" | "radius_x" | "radius_y" | "color">
+  ) => Promise<TreeLevel>;
+  onUpdateLevel: (
+    id: number,
+    data: Partial<Pick<TreeLevel, "name" | "center_x" | "center_y" | "radius_x" | "radius_y" | "color">>
+  ) => Promise<TreeLevel>;
   onDeleteLevel: (id: number) => Promise<void>;
 }
 
@@ -384,37 +387,47 @@ function NodeGraphManagerInner({
     } catch (e) { alert(e instanceof Error ? e.message : "위치 변경 실패"); }
   }
 
-  // ── level boundary editing ──────────────────────────────────────────────────
+  // ── level boundary editing (독립 타원: 중심 이동 / 가로·세로 반경 조절) ────────────
 
-  function startLevelDrag(e: React.MouseEvent, level: TreeLevel) {
+  type LevelDragMode = "center" | "rx" | "ry";
+
+  function startLevelDrag(e: React.MouseEvent, level: TreeLevel, mode: LevelDragMode) {
     e.stopPropagation();
-    if (!rootNode) return;
     isDraggingLevelRef.current = true;
-    let currentRadius = level.radius;
+    let current = {
+      center_x: level.center_x, center_y: level.center_y,
+      radius_x: level.radius_x, radius_y: level.radius_y,
+    };
 
     function onMove(ev: MouseEvent) {
       const flowPos = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
-      const dx = flowPos.x - (rootNode!.pos_x ?? 0);
-      const dy = flowPos.y - (rootNode!.pos_y ?? 0);
-      currentRadius = Math.max(10, Math.round(Math.sqrt(dx * dx + dy * dy)));
-      setLocalLevels((prev) => prev.map((l) => (l.id === level.id ? { ...l, radius: currentRadius } : l)));
+      if (mode === "center") {
+        current = { ...current, center_x: Math.round(flowPos.x), center_y: Math.round(flowPos.y) };
+      } else if (mode === "rx") {
+        current = { ...current, radius_x: Math.max(10, Math.round(Math.abs(flowPos.x - current.center_x))) };
+      } else {
+        current = { ...current, radius_y: Math.max(10, Math.round(Math.abs(flowPos.y - current.center_y))) };
+      }
+      setLocalLevels((prev) => prev.map((l) => (l.id === level.id ? { ...l, ...current } : l)));
     }
     async function onUp() {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       isDraggingLevelRef.current = false;
-      try { await onUpdateLevel(level.id, { radius: currentRadius }); }
-      catch (err) { alert(err instanceof Error ? err.message : "레벨 반경 변경 실패"); }
+      try { await onUpdateLevel(level.id, current); }
+      catch (err) { alert(err instanceof Error ? err.message : "레벨 수정 실패"); }
     }
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }
 
-  function updateLocalLevelField(id: number, field: "name" | "color", value: string) {
+  type EditableLevelField = "name" | "color" | "center_x" | "center_y" | "radius_x" | "radius_y";
+
+  function updateLocalLevelField<K extends EditableLevelField>(id: number, field: K, value: TreeLevel[K]) {
     setLocalLevels((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
   }
 
-  async function commitLevelField(id: number, field: "name" | "color") {
+  async function commitLevelField(id: number, field: EditableLevelField) {
     const lvl = localLevels.find((l) => l.id === id);
     if (!lvl) return;
     try { await onUpdateLevel(id, { [field]: lvl[field] }); }
@@ -422,11 +435,14 @@ function NodeGraphManagerInner({
   }
 
   async function addLevel() {
-    const maxRadius = localLevels.reduce((m, l) => Math.max(m, l.radius), 0);
+    const cx = rootNode?.pos_x ?? 0;
+    const cy = rootNode?.pos_y ?? 0;
+    const size = 200 + localLevels.length * 150;
     try {
       await onCreateLevel({
         name: `Level ${localLevels.length + 1}`,
-        radius: maxRadius > 0 ? maxRadius + 200 : 300,
+        center_x: cx, center_y: cy,
+        radius_x: size, radius_y: size,
         color: "#3b82f6",
       });
     } catch (err) { alert(err instanceof Error ? err.message : "레벨 추가 실패"); }
@@ -499,13 +515,13 @@ function NodeGraphManagerInner({
     "add-node":    "빈 캔버스를 클릭해 노드를 배치하세요",
     "add-edge":    edgeSourceId ? "타겟 노드를 클릭하세요 · 빈 공간 클릭으로 취소" : "소스 노드를 클릭하세요",
     "reposition":  `새 위치를 클릭하세요 · "${editingNode?.title ?? ""}"`,
-    "edit-levels": rootNode ? "원 끝의 핸들을 드래그해 반경을 조절하세요" : "ROOT 노드가 없어 레벨을 배치할 수 없습니다",
+    "edit-levels": "● 핸들 드래그로 이동, ■ 핸들 드래그로 가로/세로 크기 조절",
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <GraphContext.Provider value={{ hoveredId, editingId: editingNode?.id ?? null, edgeSourceId, graphMode, levels: localLevels, rootNode, setHoveredId }}>
+    <GraphContext.Provider value={{ hoveredId, editingId: editingNode?.id ?? null, edgeSourceId, graphMode, levels: localLevels, setHoveredId }}>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
         {/* ── Top toolbar (full width) ──────────────────────────────────────── */}
@@ -612,37 +628,58 @@ function NodeGraphManagerInner({
               <Background variant={BackgroundVariant.Dots} gap={40} size={1.5} color="#d1d5db" />
             </ReactFlow>
 
-            {/* Level boundary circles */}
-            {graphMode === "edit-levels" && rootNode && (
+            {/* Level boundary ellipses (레벨마다 독립된 중심·가로/세로 반경) — 기본 모드에선 표시만, 편집 모드에선 핸들도 표시 */}
+            {(graphMode === "default" || graphMode === "edit-levels") && localLevels.length > 0 && (
               <svg
                 className="absolute inset-0 w-full h-full pointer-events-none z-10"
                 style={{ overflow: "visible" }}
               >
                 <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.zoom})`}>
-                  {[...localLevels].sort((a, b) => b.radius - a.radius).map((lvl) => (
-                    <circle
+                  {[...localLevels].sort((a, b) => (b.radius_x * b.radius_y) - (a.radius_x * a.radius_y)).map((lvl) => (
+                    <ellipse
                       key={lvl.id}
-                      cx={rootNode!.pos_x ?? 0}
-                      cy={rootNode!.pos_y ?? 0}
-                      r={lvl.radius}
+                      cx={lvl.center_x}
+                      cy={lvl.center_y}
+                      rx={lvl.radius_x}
+                      ry={lvl.radius_y}
                       fill="none"
                       stroke={lvl.color ?? "#3b82f6"}
                       strokeWidth={1.5 / viewport.zoom}
                       strokeDasharray={`${6 / viewport.zoom},${4 / viewport.zoom}`}
                     />
                   ))}
-                  {localLevels.map((lvl) => (
-                    <g
-                      key={`handle-${lvl.id}`}
-                      transform={`translate(${(rootNode!.pos_x ?? 0) + lvl.radius} ${rootNode!.pos_y ?? 0}) scale(${1 / viewport.zoom})`}
-                    >
-                      <rect
-                        x={-6} y={-6} width={12} height={12} rx={2}
-                        fill={lvl.color ?? "#3b82f6"}
-                        stroke="#fff" strokeWidth={1.5}
-                        style={{ cursor: "ew-resize", pointerEvents: "auto" }}
-                        onMouseDown={(e) => startLevelDrag(e, lvl)}
-                      />
+                  {graphMode === "edit-levels" && localLevels.map((lvl) => (
+                    <g key={`handles-${lvl.id}`}>
+                      {/* 중심 이동 핸들 */}
+                      <g transform={`translate(${lvl.center_x} ${lvl.center_y}) scale(${1 / viewport.zoom})`}>
+                        <circle
+                          r={5}
+                          fill={lvl.color ?? "#3b82f6"}
+                          stroke="#fff" strokeWidth={1.5}
+                          style={{ cursor: "move", pointerEvents: "auto" }}
+                          onMouseDown={(e) => startLevelDrag(e, lvl, "center")}
+                        />
+                      </g>
+                      {/* 가로 반경 핸들 */}
+                      <g transform={`translate(${lvl.center_x + lvl.radius_x} ${lvl.center_y}) scale(${1 / viewport.zoom})`}>
+                        <rect
+                          x={-6} y={-6} width={12} height={12} rx={2}
+                          fill={lvl.color ?? "#3b82f6"}
+                          stroke="#fff" strokeWidth={1.5}
+                          style={{ cursor: "ew-resize", pointerEvents: "auto" }}
+                          onMouseDown={(e) => startLevelDrag(e, lvl, "rx")}
+                        />
+                      </g>
+                      {/* 세로 반경 핸들 */}
+                      <g transform={`translate(${lvl.center_x} ${lvl.center_y + lvl.radius_y}) scale(${1 / viewport.zoom})`}>
+                        <rect
+                          x={-6} y={-6} width={12} height={12} rx={2}
+                          fill={lvl.color ?? "#3b82f6"}
+                          stroke="#fff" strokeWidth={1.5}
+                          style={{ cursor: "ns-resize", pointerEvents: "auto" }}
+                          onMouseDown={(e) => startLevelDrag(e, lvl, "ry")}
+                        />
+                      </g>
                     </g>
                   ))}
                 </g>
@@ -752,34 +789,44 @@ function NodeGraphManagerInner({
                     <Plus size={11} />레벨 추가
                   </button>
                 </div>
-                {!rootNode && (
-                  <p className="px-3.5 py-3 text-[11px] text-amber-600">
-                    ROOT 노드(제목 &quot;Root&quot;)가 없어 반경을 배치할 기준점이 없습니다.
-                  </p>
-                )}
-                {[...localLevels].sort((a, b) => a.radius - b.radius).map((lvl) => (
-                  <div key={lvl.id} className="flex items-center gap-2 px-3.5 py-2 border-b border-gray-50 last:border-0">
-                    <input
-                      type="color"
-                      value={lvl.color ?? "#3b82f6"}
-                      onChange={(e) => { updateLocalLevelField(lvl.id, "color", e.target.value); }}
-                      onBlur={() => commitLevelField(lvl.id, "color")}
-                      className="w-6 h-6 rounded border border-gray-200 shrink-0 cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={lvl.name}
-                      onChange={(e) => updateLocalLevelField(lvl.id, "name", e.target.value)}
-                      onBlur={() => commitLevelField(lvl.id, "name")}
-                      className="flex-1 min-w-0 text-xs text-gray-800 border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
-                    />
-                    <span className="text-[11px] font-mono text-gray-400 shrink-0">r={Math.round(lvl.radius)}</span>
-                    <button
-                      onClick={() => removeLevel(lvl.id)}
-                      className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                {localLevels.map((lvl) => (
+                  <div key={lvl.id} className="px-3.5 py-2.5 border-b border-gray-50 last:border-0 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={lvl.color ?? "#3b82f6"}
+                        onChange={(e) => { updateLocalLevelField(lvl.id, "color", e.target.value); }}
+                        onBlur={() => commitLevelField(lvl.id, "color")}
+                        className="w-6 h-6 rounded border border-gray-200 shrink-0 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={lvl.name}
+                        onChange={(e) => updateLocalLevelField(lvl.id, "name", e.target.value)}
+                        onBlur={() => commitLevelField(lvl.id, "name")}
+                        className="flex-1 min-w-0 text-xs text-gray-800 border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                      />
+                      <button
+                        onClick={() => removeLevel(lvl.id)}
+                        className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      <LevelNumberField label="X" value={lvl.center_x}
+                        onChange={(v) => updateLocalLevelField(lvl.id, "center_x", v)}
+                        onCommit={() => commitLevelField(lvl.id, "center_x")} />
+                      <LevelNumberField label="Y" value={lvl.center_y}
+                        onChange={(v) => updateLocalLevelField(lvl.id, "center_y", v)}
+                        onCommit={() => commitLevelField(lvl.id, "center_y")} />
+                      <LevelNumberField label="가로" value={lvl.radius_x}
+                        onChange={(v) => updateLocalLevelField(lvl.id, "radius_x", Math.max(10, v))}
+                        onCommit={() => commitLevelField(lvl.id, "radius_x")} />
+                      <LevelNumberField label="세로" value={lvl.radius_y}
+                        onChange={(v) => updateLocalLevelField(lvl.id, "radius_y", Math.max(10, v))}
+                        onCommit={() => commitLevelField(lvl.id, "radius_y")} />
+                    </div>
                   </div>
                 ))}
                 {localLevels.length === 0 && (
@@ -866,6 +913,23 @@ function ModeBtn({ children, active, onClick, accent = "gray" }: {
       className={clsx("flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", active ? cls.on : cls.off)}>
       {children}
     </button>
+  );
+}
+
+function LevelNumberField({ label, value, onChange, onCommit }: {
+  label: string; value: number; onChange: (v: number) => void; onCommit: () => void;
+}) {
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wide">{label}</span>
+      <input
+        type="number"
+        value={Math.round(value)}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onBlur={onCommit}
+        className="w-full text-[11px] font-mono text-gray-700 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+      />
+    </label>
   );
 }
 

@@ -50,35 +50,27 @@ export function nodeKindColor(kind: string) {
   }
 }
 
-// ─── Levels (ROOT 거리 기반 자동 분류) ──────────────────────────────────────────
+// ─── Levels (타원 바운더리 기반 자동 분류) ──────────────────────────────────────
 
 export function findRootNode(nodes: DocumentNode[]): DocumentNode | undefined {
   return nodes.find((n) => n.title === "Root" || (n.node_kind as string) === "root");
 }
 
-export function distanceFromRoot(
-  node: DocumentNode,
-  root: DocumentNode | undefined
-): number | null {
-  if (!root) return null;
-  const dx = (node.pos_x ?? 0) - (root.pos_x ?? 0);
-  const dy = (node.pos_y ?? 0) - (root.pos_y ?? 0);
-  return Math.sqrt(dx * dx + dy * dy);
+/** 타원 중심 기준 정규화 거리. 1 이하면 타원 내부, 작을수록 중심에 더 가깝다. */
+function ellipseScore(node: DocumentNode, level: TreeLevel): number {
+  const dx = (node.pos_x ?? 0) - level.center_x;
+  const dy = (node.pos_y ?? 0) - level.center_y;
+  return (dx / level.radius_x) ** 2 + (dy / level.radius_y) ** 2;
 }
 
 /**
- * 노드가 속한 레벨을 거리 기준으로 실시간 계산한다 (노드 레코드에는 저장하지 않음).
- * 모든 레벨의 반경보다 멀리 떨어진 노드는 가장 바깥(최대 radius) 레벨로 편입된다.
+ * 노드가 속한 레벨을 실시간 계산한다 (노드 레코드에는 저장하지 않음).
+ * 레벨은 서로 독립된 타원이라 중첩/순서가 없으므로, 모든 레벨 중 정규화 거리가
+ * 가장 작은(가장 안쪽에 가까운) 타원을 노드의 소속 레벨로 본다.
  */
-export function resolveNodeLevel(
-  node: DocumentNode,
-  root: DocumentNode | undefined,
-  levels: TreeLevel[]
-): TreeLevel | null {
+export function resolveNodeLevel(node: DocumentNode, levels: TreeLevel[]): TreeLevel | null {
   if (levels.length === 0) return null;
-  const distance = distanceFromRoot(node, root);
-  if (distance === null) return null;
-
-  const sorted = [...levels].sort((a, b) => a.radius - b.radius);
-  return sorted.find((lvl) => distance <= lvl.radius) ?? sorted[sorted.length - 1];
+  return levels.reduce((best, lvl) =>
+    ellipseScore(node, lvl) < ellipseScore(node, best) ? lvl : best
+  );
 }
