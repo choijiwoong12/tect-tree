@@ -18,7 +18,7 @@ export async function GET() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: nodes, error }, { data: nodeEdges }] = await Promise.all([
+  const [{ data: nodes, error }, { data: nodeEdges }, { data: treeLevels }] = await Promise.all([
     supabaseAdminDb
       .from('document_nodes')
       .select('id, parent_id, title, node_kind, pos_x, pos_y, is_locked, price, index_items')
@@ -26,6 +26,10 @@ export async function GET() {
     supabaseAdminDb
       .from('node_edges')
       .select('id, source_id, target_id'),
+    supabaseAdminDb
+      .from('tree_levels')
+      .select('id, name, center_x, center_y, radius_x, radius_y, color')
+      .order('id'),
   ])
 
   if (error) {
@@ -124,5 +128,6 @@ export async function GET() {
     viewed_ids: viewedIds,
     viewport,
     edges,
+    levels: treeLevels ?? [],
   })
 }

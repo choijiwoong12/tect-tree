@@ -115,7 +115,6 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
 
   const bg = isLightMode ? "bg-[#f5f5f5]" : "bg-[#0a0a0a]";
   const text = isLightMode ? "text-neutral-900" : "text-neutral-100";
-  const muted = isLightMode ? "text-neutral-500" : "text-neutral-400";
   const railLine = isLightMode ? "bg-neutral-300" : "bg-neutral-700";
   const dotEmpty = isLightMode ? "border-neutral-400" : "border-neutral-600";
   const dotFill = isLightMode ? "bg-neutral-800 border-neutral-800" : "bg-white border-white";
@@ -124,9 +123,9 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
 
   return createPortal(
     <div className={`fixed inset-0 z-[100] flex flex-col ${bg} ${text} transition-colors duration-300`}>
-      {/* 헤더 */}
+      {/* 헤더 — 메인 TopBar와 동일 규격(빨간 줄 z-10로 로고 위 관통, 로고 left-28/top-37/27px) */}
       <div className="relative h-[74px] shrink-0">
-        <div className="absolute left-0 right-0 top-[37px] h-px bg-[#FE0000]" />
+        <div className="pointer-events-none absolute left-0 right-0 top-[37px] z-10 h-px bg-[#FE0000]" />
         <button
           onClick={onClose}
           title="메인으로 나가기"
@@ -145,55 +144,53 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
         </button>
       </div>
 
-      {/* 본문 + 우측 목차 레일 */}
-      <div className="flex-1 min-h-0 w-full max-w-5xl mx-auto px-8 md:px-16 flex gap-8">
-        <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto scrollbar-hide py-10 pr-4">
-          {content ? (
-            <>
-              <h1 className="font-pixel text-4xl md:text-5xl text-red-600 tracking-wider mb-12 break-keep">
-                {content.title}
-              </h1>
-              <div
-                className="document-body leading-loose break-keep [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1 [&_hr]:border-neutral-600 [&_hr]:my-6"
-                dangerouslySetInnerHTML={{ __html: content.body_content ?? '' }}
-              />
-            </>
-          ) : loadError ? (
-            <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-              <p className="font-pixel text-sm text-red-500">{loadError}</p>
-              <button onClick={onClose} className="font-pixel text-xs text-white/60 underline">
-                닫기
-              </button>
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <div className="h-2 w-2 animate-ping rounded-full bg-red-500" />
-            </div>
-          )}
-          <div className="h-[40vh]" aria-hidden />
+      {/* 본문(넓게) + 우측 목차 레일(토글 바로 아래, 우측 끝 절대배치) */}
+      <div className="relative flex-1 min-h-0">
+        <div ref={containerRef} onScroll={handleScroll} className="h-full overflow-y-auto scrollbar-hide">
+          <div className="mx-auto w-full max-w-[1720px] py-10 pl-10 pr-24 md:pl-16 md:pr-36">
+            {content ? (
+              <>
+                <h1 className="font-pixel text-4xl md:text-5xl text-red-600 tracking-wider mb-12 break-keep">
+                  {content.title}
+                </h1>
+                <div
+                  className="document-body font-myeongjo text-[20px] md:text-[22px] leading-loose break-keep [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1 [&_hr]:border-neutral-600 [&_hr]:my-6"
+                  dangerouslySetInnerHTML={{ __html: content.body_content ?? '' }}
+                />
+              </>
+            ) : loadError ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                <p className="font-pixel text-sm text-red-500">{loadError}</p>
+                <button onClick={onClose} className="font-pixel text-xs text-white/60 underline">
+                  닫기
+                </button>
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <div className="h-2 w-2 animate-ping rounded-full bg-red-500" />
+              </div>
+            )}
+            <div className="h-[40vh]" aria-hidden />
+          </div>
         </div>
 
-        {/* 우측 목차 레일 */}
+        {/* 우측 목차 레일 — 헤더 토글(right-21, w-42) 바로 아래에 정렬 */}
         {sections.length > 0 && (
-          <div className="relative w-8 shrink-0 flex flex-col items-center py-10">
-            <div className={`absolute top-10 bottom-10 w-px ${railLine}`} />
-            <div className="relative flex flex-col justify-between h-full">
+          <div className="pointer-events-none absolute right-[21px] top-0 bottom-0 flex w-[42px] flex-col items-center py-12">
+            <div className={`absolute left-1/2 top-12 bottom-12 w-px -translate-x-1/2 ${railLine}`} />
+            <div className="relative flex h-full flex-col justify-between">
               {sections.map((title, i) => (
                 <button
                   key={i}
                   onClick={() => jumpTo(i)}
                   title={title}
                   aria-label={`${title}로 이동`}
-                  className={`w-3 h-3 rounded-full border transition-colors ${i < readCount ? dotFill : `bg-transparent ${dotEmpty}`}`}
+                  className={`pointer-events-auto h-[14px] w-[14px] rounded-full border transition-colors ${i < readCount ? dotFill : `bg-transparent ${dotEmpty}`}`}
                 />
               ))}
             </div>
           </div>
         )}
-      </div>
-
-      <div className={`shrink-0 py-4 px-6 text-right font-pixel text-xs ${muted}`}>
-        {readCount} / {sections.length}
       </div>
     </div>,
     document.body,

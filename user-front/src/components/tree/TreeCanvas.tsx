@@ -9,6 +9,7 @@ import {
   Edge,
   Viewport,
   useReactFlow,
+  useViewport,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { DotNode } from './DotNode'
@@ -96,6 +97,60 @@ interface ApiEdge {
   target: number
 }
 
+// 레벨 타원(어드민 tree_levels) — 노드와 같은 절대 flow 좌표계
+interface Level {
+  id: number
+  name: string
+  center_x: number
+  center_y: number
+  radius_x: number
+  radius_y: number
+  color: string | null
+}
+
+// 레벨 타원 오버레이 — 뷰포트 기준 화면좌표로 변환해 SVG로 그린다.
+// - 선: 줌과 무관하게 항상 1px(화면 고정)로 선명
+// - 글자: 나타나기 시작하는 순간(줌아웃 임계값)에 25px, 그 뒤 더 줌아웃하면 상대적으로 작아짐
+// - visible(줌아웃)일 때만 페이드인 → 노드 디테일 사라질 때 타원이 나타남
+const LEVEL_LABEL_SIZE = 25 // 나타나기 시작할 때 라벨 크기(px)
+function LevelOverlay({ levels, visible }: { levels: Level[]; visible: boolean }) {
+  const { x, y, zoom } = useViewport()
+  if (levels.length === 0) return null
+  // 임계 줌(라벨이 나타나는 시점)에서 LEVEL_LABEL_SIZE가 되도록 스케일
+  const threshold = designScale() * DETAIL_ZOOM_FACTOR
+  const labelSize = threshold > 0 ? (LEVEL_LABEL_SIZE * zoom) / threshold : LEVEL_LABEL_SIZE
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-500"
+      style={{ zIndex: 0, opacity: visible ? 1 : 0 }}
+    >
+      {levels.map((lv) => {
+        const cx = lv.center_x * zoom + x
+        const cy = lv.center_y * zoom + y
+        const rx = lv.radius_x * zoom
+        const ry = lv.radius_y * zoom
+        return (
+          <g key={lv.id}>
+            <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="none" stroke="#ffffff" strokeWidth={1} />
+            {/* 라벨 — 타원 왼쪽 끝 바깥, 세로 중앙 */}
+            <text
+              className="font-pixel"
+              x={cx - rx - labelSize * 0.4}
+              y={cy}
+              textAnchor="end"
+              dominantBaseline="middle"
+              fill="#ffffff"
+              style={{ fontSize: labelSize }}
+            >
+              {lv.name.toUpperCase()}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
 export interface ContentNodeInfo {
   nodeId: number
   title: string
@@ -152,20 +207,24 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
   const baseAccessibleRef = useRef<Set<number>>(new Set())
   // 줌아웃 시 별자리 모드 — 디테일은 Context로 노드에, 회색 엣지는 CSS로 숨김
   const [zoomedOut, setZoomedOut] = useState(false)
+  // 레벨 타원(어드민 tree_levels)
+  const [levels, setLevels] = useState<Level[]>([])
 
   useEffect(() => {
     async function loadNodes() {
       try {
         const res = await fetch('/api/nodes/map')
         if (!res.ok) return
-        const { nodes: apiNodes, unlocked_ids, viewed_ids, edges: apiEdges }: {
+        const { nodes: apiNodes, unlocked_ids, viewed_ids, edges: apiEdges, levels: apiLevels }: {
           nodes: ApiNode[]
           unlocked_ids: number[]
           viewed_ids?: number[]
           edges?: ApiEdge[]
+          levels?: Level[]
         } = await res.json()
         const accessibleSet = new Set(unlocked_ids)
         const viewedSet = new Set(viewed_ids ?? [])
+        setLevels(apiLevels ?? [])
         apiNodesRef.current = apiNodes
         apiEdgesRef.current = apiEdges ?? []
         baseViewedRef.current = viewedSet
@@ -358,6 +417,8 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
   return (
     <DetailVisibleContext.Provider value={!zoomedOut}>
       <div className={`relative z-10 h-full w-full ${zoomedOut ? 'tree-zoomed-out' : ''}`}>
+        {/* 레벨 타원 — 노드/엣지 뒤(배경). 줌아웃(별자리 모드)일 때만 페이드인 */}
+        <LevelOverlay levels={levels} visible={zoomedOut} />
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -377,7 +438,7 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(function
           maxZoom={3}
           proOptions={{ hideAttribution: true }}
           colorMode="dark"
-          style={{ background: 'transparent' }}
+          style={{ background: 'transparent', position: 'relative', zIndex: 1 }}
         />
       </div>
     </DetailVisibleContext.Provider>

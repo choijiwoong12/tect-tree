@@ -46,34 +46,28 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
         className="absolute left-[583px] top-[90px] h-[550px] w-[755px] bg-[#EAEAEA] text-black"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* SHOP — 박스기준 (52,50) = X634.94 Y140, Sam48, 밑줄 */}
-        <div className="absolute left-[52px] top-[50px] font-pixel text-[48px] leading-none">
-          <span className="inline-block border-b-[5px] border-black pb-[6px]">SHOP</span>
-        </div>
+        {/* SHOP — 박스기준 (52,50) = X634.94 Y140, Sam48 */}
+        <div className="absolute left-[52px] top-[50px] font-pixel text-[48px] leading-none">SHOP</div>
 
         {view === "list" ? (
           <>
             {/* RP — (52,141) = Y231, Sam33 */}
             <div className="absolute left-[52px] top-[141px] font-pixel text-[33px] leading-none">RP</div>
 
-            {/* 가격표 — (52,221) = Y311, W628.5, Sam27. 오른쪽 여백(pr)으로 가격이 ( > ) 화살표와 안 겹치게 */}
-            <div className="absolute left-[52px] top-[221px] w-[628.5px] pr-[36px] font-pixel text-[27px] leading-none">
+            {/* 가격표 — Figma 박스 W628.5 H246 (52,221). 모든 행 동일 글자수 → KRW 오른쪽 끝 정렬 */}
+            <div className="absolute left-[52px] top-[221px] h-[246px] w-[628.5px] font-pixel text-[27px] leading-none">
               {RP_PACKAGES.map((p) => (
-                <Row
+                <PriceRow
                   key={p.rp}
                   active={selected?.kind === "rp" && selected.rp === p.rp}
-                  amount={krw(p.rp)}
-                  bonus={p.bonus}
-                  price={`${krw(p.price)} KRW`}
+                  line={buildLine(rpLeft(p.rp, p.bonus), priceCol(p.price))}
                   onClick={() => setSelected({ kind: "rp", rp: p.rp, bonus: p.bonus, price: p.price })}
                 />
               ))}
-              <div className="h-[29px]" />
-              <Row
+              <div className="h-[30px]" />
+              <PriceRow
                 active={selected?.kind === "subscription"}
-                amount="MONTHLY SUBSCRIPTION PLAN"
-                wide
-                price={`${krw(SUBSCRIPTION_PRICE)} KRW`}
+                line={buildLine("MONTHLY SUBSCRIPTION PLAN", priceCol(SUBSCRIPTION_PRICE))}
                 onClick={() => setSelected({ kind: "subscription", price: SUBSCRIPTION_PRICE })}
               />
             </div>
@@ -97,12 +91,12 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
           </>
         )}
 
-        {/* ( > ) 결제 화살표 — 우측. 상품 선택 시 노출. 목록→안내, 안내→Toss */}
+        {/* ( > ) 결제 화살표 — Figma 좌표 X1262 Y371 = 모달기준 (679,281), 60×34. 상품 선택 시 노출 */}
         {selected && (
           <button
             onClick={handleArrow}
             aria-label={view === "list" ? "안내 보기" : "결제로 이동"}
-            className="absolute left-[679px] top-[281px] flex h-[34px] w-[60px] items-center justify-center font-pixel text-[24px] leading-none text-black transition-colors hover:text-red-600"
+            className="absolute left-[679px] top-[281px] flex h-[34px] w-[60px] items-center justify-center whitespace-nowrap font-pixel text-[24px] leading-none text-black transition-colors hover:text-red-600"
           >
             {"( > )"}
           </button>
@@ -112,44 +106,35 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// 가격표 행 — 금액 | RP | (+ 보너스 BONUS) | 점선 리더 | 가격 KRW. hover/선택 시 빨강.
-function Row({
-  active,
-  amount,
-  bonus,
-  price,
-  wide,
-  onClick,
-}: {
-  active: boolean;
-  amount: string;
-  bonus?: number;
-  price: string;
-  wide?: boolean;
-  onClick: () => void;
-}) {
+// 가격표 행 — Sam3KRFont(ASCII 등폭) 단조폭 문자열. 모든 행을 LINE_W 글자로 패딩해 KRW 오른쪽 끝 정렬.
+// 한 행 총 글자수 — 텍스트가 박스 우측 끝보다 안쪽에서 끝나(여백) 그 여백의 화살표(상대 679)와 안 겹치게
+const LINE_W = 42;
+
+// 가격 컬럼: 숫자(콤마) 우측정렬 7칸 + " KRW" = 11칸 (예: "  5,000 KRW", "500,000 KRW")
+function priceCol(krwValue: number): string {
+  return krwValue.toLocaleString().padStart(7) + " KRW";
+}
+
+// 좌측: 금액(콤마X) + RP [+ 보너스 BONUS]. 금액/보너스는 패딩으로 컬럼 정렬.
+function rpLeft(rp: number, bonus?: number): string {
+  let s = String(rp).padEnd(7) + "RP";
+  if (bonus != null) s += " + " + String(bonus).padEnd(7) + "BONUS";
+  return s;
+}
+
+// 좌측 + (남는 칸만큼 대시) + 우측 = 총 LINE_W 글자
+function buildLine(left: string, right: string): string {
+  const dashes = Math.max(2, LINE_W - left.length - right.length - 2);
+  return `${left} ${"-".repeat(dashes)} ${right}`;
+}
+
+function PriceRow({ active, line, onClick }: { active: boolean; line: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className={`flex h-[29px] w-full items-center transition-colors ${active ? "text-red-600" : "text-black hover:text-red-600"}`}
+      className={`block h-[27px] whitespace-pre text-left leading-[27px] transition-colors ${active ? "text-red-600" : "text-black hover:text-red-600"}`}
     >
-      {wide ? (
-        <span className="whitespace-nowrap">{amount}</span>
-      ) : (
-        <>
-          <span className="w-[120px] shrink-0 text-left">{amount}</span>
-          <span className="w-[56px] shrink-0">RP</span>
-          {bonus != null && (
-            <span className="flex w-[230px] shrink-0 items-center">
-              <span className="w-[34px]">+</span>
-              <span className="w-[100px]">{bonus.toLocaleString()}</span>
-              <span>BONUS</span>
-            </span>
-          )}
-        </>
-      )}
-      <span className="mx-3 flex-1 self-center border-b border-dashed border-current opacity-60" />
-      <span className="w-[180px] shrink-0 whitespace-nowrap text-right">{price}</span>
+      {line}
     </button>
   );
 }
