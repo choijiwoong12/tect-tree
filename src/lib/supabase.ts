@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { DocumentNode, NodeEdge, Announcement } from "./types";
+import type { DocumentNode, NodeEdge, Announcement, TreeLevel } from "./types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder";
@@ -198,4 +198,49 @@ export async function reorderAnnouncements(
   const results = await Promise.all(updates);
   const err = results.find((r) => r.error)?.error;
   if (err) throw err;
+}
+
+// ─── Tree levels (boundaries) ─────────────────────────────────────────────────
+
+export async function fetchAllLevels(): Promise<TreeLevel[]> {
+  const { data, error } = await supabase
+    .from("tree_levels")
+    .select("*")
+    .order("radius", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createLevel(
+  payload: Pick<TreeLevel, "name" | "radius" | "color">
+): Promise<TreeLevel> {
+  const { data, error } = await supabase
+    .from("tree_levels")
+    .insert(payload)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateLevel(
+  id: number,
+  payload: Partial<Omit<TreeLevel, "id" | "created_at" | "updated_at">>
+): Promise<TreeLevel> {
+  const { data, error } = await supabase
+    .from("tree_levels")
+    .update(payload)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteLevel(id: number): Promise<void> {
+  const { error } = await supabase
+    .from("tree_levels")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
 }

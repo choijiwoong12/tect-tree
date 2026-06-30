@@ -10,7 +10,7 @@ import PreviewGraph from "@/components/PreviewGraph";
 import Dashboard from "@/components/Dashboard";
 import LoginPage from "@/components/LoginPage";
 import AnnouncementManager from "@/components/AnnouncementManager";
-import type { DocumentNode, NodeEdge } from "@/lib/types";
+import type { DocumentNode, NodeEdge, TreeLevel } from "@/lib/types";
 import {
   supabase,
   fetchAllNodes,
@@ -20,6 +20,10 @@ import {
   deleteNode,
   createEdge,
   deleteEdge,
+  fetchAllLevels,
+  createLevel,
+  updateLevel,
+  deleteLevel,
   signOut,
 } from "@/lib/supabase";
 import { AlertTriangle } from "lucide-react";
@@ -53,6 +57,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
   const [tab, setTab] = useState<Tab>("nodes");
   const [nodes, setNodes] = useState<DocumentNode[]>([]);
   const [edges, setEdges] = useState<NodeEdge[]>([]);
+  const [levels, setLevels] = useState<TreeLevel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -61,9 +66,12 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
     setLoading(true);
     setError(null);
     try {
-      const [nodesData, edgesData] = await Promise.all([fetchAllNodes(), fetchAllEdges()]);
+      const [nodesData, edgesData, levelsData] = await Promise.all([
+        fetchAllNodes(), fetchAllEdges(), fetchAllLevels(),
+      ]);
       setNodes(nodesData);
       setEdges(edgesData);
+      setLevels(levelsData);
     } catch (e) {
       setError(
         e instanceof Error
@@ -160,6 +168,41 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
     }
   }
 
+  async function handleCreateLevel(data: Pick<TreeLevel, "name" | "radius" | "color">): Promise<TreeLevel> {
+    try {
+      const created = await createLevel(data);
+      await loadData();
+      return created;
+    } catch (e) {
+      alert(errMsg(e));
+      throw e;
+    }
+  }
+
+  async function handleUpdateLevel(
+    id: number,
+    data: Partial<Pick<TreeLevel, "name" | "radius" | "color">>
+  ): Promise<TreeLevel> {
+    try {
+      const updated = await updateLevel(id, data);
+      await loadData();
+      return updated;
+    } catch (e) {
+      alert(errMsg(e));
+      throw e;
+    }
+  }
+
+  async function handleDeleteLevel(id: number): Promise<void> {
+    try {
+      await deleteLevel(id);
+      await loadData();
+    } catch (e) {
+      alert(errMsg(e));
+      throw e;
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
       <Sidebar
@@ -229,12 +272,16 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
             <NodeGraphManager
               nodes={nodes}
               edges={edges}
+              levels={levels}
               saving={saving}
               onCreateNode={handleCreateNode}
               onUpdateNode={handleUpdateNode}
               onDeleteNode={handleDeleteNode}
               onCreateEdge={handleCreateEdge}
               onDeleteEdge={handleDeleteEdge}
+              onCreateLevel={handleCreateLevel}
+              onUpdateLevel={handleUpdateLevel}
+              onDeleteLevel={handleDeleteLevel}
             />
           )}
 

@@ -16,6 +16,7 @@ import {
   useEdgesState,
   useReactFlow,
   useNodesInitialized,
+  useViewport,
   ReactFlowProvider,
   Handle,
   Position,
@@ -25,15 +26,16 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  ZoomIn, ZoomOut, Maximize2, Plus, X, ArrowRight, Search, Trash2, MapPin,
+  ZoomIn, ZoomOut, Maximize2, Plus, X, ArrowRight, Search, Trash2, MapPin, Target,
 } from "lucide-react";
 import clsx from "clsx";
-import type { DocumentNode, NodeEdge } from "@/lib/types";
+import type { DocumentNode, NodeEdge, TreeLevel } from "@/lib/types";
+import { findRootNode, resolveNodeLevel } from "@/lib/utils";
 import NodeDetail from "./NodeDetail";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type GraphMode = "default" | "add-node" | "add-edge" | "reposition";
+type GraphMode = "default" | "add-node" | "add-edge" | "reposition" | "edit-levels";
 
 // ─── context ─────────────────────────────────────────────────────────────────
 
@@ -42,6 +44,8 @@ interface GraphCtx {
   editingId: number | null;
   edgeSourceId: number | null;
   graphMode: GraphMode;
+  levels: TreeLevel[];
+  rootNode: DocumentNode | undefined;
   setHoveredId: (id: number | null) => void;
 }
 
@@ -50,6 +54,8 @@ const GraphContext = createContext<GraphCtx>({
   editingId: null,
   edgeSourceId: null,
   graphMode: "default",
+  levels: [],
+  rootNode: undefined,
   setHoveredId: () => {},
 });
 
@@ -77,7 +83,7 @@ type DocNodeData = { docNode: DocumentNode };
 
 function ManagerNodeComponent({ data }: NodeProps) {
   const { docNode } = data as DocNodeData;
-  const { hoveredId, editingId, edgeSourceId, graphMode, setHoveredId } = useContext(GraphContext);
+  const { hoveredId, editingId, edgeSourceId, graphMode, levels, rootNode, setHoveredId } = useContext(GraphContext);
   const id = docNode.id;
   const r = nodeRadius(docNode.node_kind);
   const { fill, stroke } = nodeColor(docNode.node_kind);
@@ -86,6 +92,8 @@ function ManagerNodeComponent({ data }: NodeProps) {
   const isEdgeSrc = edgeSourceId === id;
   const isHovered = hoveredId === id;
   const isAddEdge = graphMode === "add-edge";
+  const isEditLevels = graphMode === "edit-levels";
+  const nodeLevel = isEditLevels ? resolveNodeLevel(docNode, rootNode, levels) : null;
 
   const circleFill   = isEditing ? "#ef4444" : isEdgeSrc ? "#f97316" : fill;
   const circleStroke = isEditing ? "#dc2626"
@@ -117,7 +125,9 @@ function ManagerNodeComponent({ data }: NodeProps) {
         fontSize: docNode.node_kind === "category" ? 12 : 11,
         fontFamily: "monospace", pointerEvents: "none",
         fontWeight: docNode.node_kind === "category" ? 700 : 400,
-        color: isEditing ? "#ef4444" : isEdgeSrc ? "#f97316" : isHovered ? "#111827" : "#6b7280",
+        color: isEditing ? "#ef4444" : isEdgeSrc ? "#f97316"
+          : nodeLevel?.color ? nodeLevel.color
+          : isHovered ? "#111827" : "#6b7280",
       }}>
         {docNode.title}
       </div>
@@ -132,21 +142,27 @@ const nodeTypes = { managerNode: ManagerNodeComponent };
 interface Props {
   nodes: DocumentNode[];
   edges: NodeEdge[];
+  levels: TreeLevel[];
   saving: boolean;
   onCreateNode: (data: Partial<DocumentNode>, posX: number, posY: number) => Promise<DocumentNode>;
   onUpdateNode: (id: number, data: Partial<DocumentNode>) => Promise<DocumentNode>;
   onDeleteNode: (id: number) => Promise<void>;
   onCreateEdge: (sourceId: number, targetId: number) => Promise<NodeEdge>;
   onDeleteEdge: (id: number) => Promise<void>;
+  onCreateLevel: (data: Pick<TreeLevel, "name" | "radius" | "color">) => Promise<TreeLevel>;
+  onUpdateLevel: (id: number, data: Partial<Pick<TreeLevel, "name" | "radius" | "color">>) => Promise<TreeLevel>;
+  onDeleteLevel: (id: number) => Promise<void>;
 }
 
 // ─── inner component ──────────────────────────────────────────────────────────
 
 function NodeGraphManagerInner({
-  nodes, edges, saving,
+  nodes, edges, levels, saving,
   onCreateNode, onUpdateNode, onDeleteNode, onCreateEdge, onDeleteEdge,
+  onCreateLevel, onUpdateLevel, onDeleteLevel,
 }: Props) {
   const { zoomIn, zoomOut, setViewport, setCenter, screenToFlowPosition, getViewport } = useReactFlow();
+  const viewport = useViewport();
   const nodesInitialized = useNodesInitialized();
   const centerDone = useRef(false);
 
@@ -162,6 +178,13 @@ function NodeGraphManagerInner({
   const [showSearch, setShowSearch]     = useState(false);
   const [searchQuery, setSearchQuery]   = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const [localLevels, setLocalLevels] = useState<TreeLevel[]>(levels);
+  const isDraggingLevelRef = useRef(false);
+
+  useEffect(() => {
+    if (!isDraggingLevelRef.current) setLocalLevels(levels);
+  }, [levels]);
 
   const canvasRef    = useRef<HTMLDivElement>(null);
   const ghostNodeRef = useRef<HTMLDivElement>(null);
@@ -361,6 +384,60 @@ function NodeGraphManagerInner({
     } catch (e) { alert(e instanceof Error ? e.message : "위치 변경 실패"); }
   }
 
+  // ── level boundary editing ──────────────────────────────────────────────────
+
+  function startLevelDrag(e: React.MouseEvent, level: TreeLevel) {
+    e.stopPropagation();
+    if (!rootNode) return;
+    isDraggingLevelRef.current = true;
+    let currentRadius = level.radius;
+
+    function onMove(ev: MouseEvent) {
+      const flowPos = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
+      const dx = flowPos.x - (rootNode!.pos_x ?? 0);
+      const dy = flowPos.y - (rootNode!.pos_y ?? 0);
+      currentRadius = Math.max(10, Math.round(Math.sqrt(dx * dx + dy * dy)));
+      setLocalLevels((prev) => prev.map((l) => (l.id === level.id ? { ...l, radius: currentRadius } : l)));
+    }
+    async function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      isDraggingLevelRef.current = false;
+      try { await onUpdateLevel(level.id, { radius: currentRadius }); }
+      catch (err) { alert(err instanceof Error ? err.message : "레벨 반경 변경 실패"); }
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  function updateLocalLevelField(id: number, field: "name" | "color", value: string) {
+    setLocalLevels((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
+  }
+
+  async function commitLevelField(id: number, field: "name" | "color") {
+    const lvl = localLevels.find((l) => l.id === id);
+    if (!lvl) return;
+    try { await onUpdateLevel(id, { [field]: lvl[field] }); }
+    catch (err) { alert(err instanceof Error ? err.message : "레벨 수정 실패"); }
+  }
+
+  async function addLevel() {
+    const maxRadius = localLevels.reduce((m, l) => Math.max(m, l.radius), 0);
+    try {
+      await onCreateLevel({
+        name: `Level ${localLevels.length + 1}`,
+        radius: maxRadius > 0 ? maxRadius + 200 : 300,
+        color: "#3b82f6",
+      });
+    } catch (err) { alert(err instanceof Error ? err.message : "레벨 추가 실패"); }
+  }
+
+  async function removeLevel(id: number) {
+    if (!confirm("이 레벨을 삭제하시겠습니까?")) return;
+    try { await onDeleteLevel(id); }
+    catch (err) { alert(err instanceof Error ? err.message : "레벨 삭제 실패"); }
+  }
+
   // ── panel callbacks ──────────────────────────────────────────────────────────
 
   function closePanel() {
@@ -412,22 +489,23 @@ function NodeGraphManagerInner({
 
   // ── derived ──────────────────────────────────────────────────────────────────
 
-  const rootNode    = nodes.find((n) => n.title === "Root" || (n.node_kind as string) === "root");
+  const rootNode    = findRootNode(nodes);
   const edgeSrcNode = edgeSourceId ? nodes.find((n) => n.id === edgeSourceId) : null;
   const delSrcNode  = deletingEdge ? nodes.find((n) => n.id === deletingEdge.source_id) : null;
   const delTgtNode  = deletingEdge ? nodes.find((n) => n.id === deletingEdge.target_id) : null;
 
   const modeHint: Record<GraphMode, string> = {
-    "default":    "노드 클릭 → 우측 패널에서 편집 · 엣지 클릭 → 삭제",
-    "add-node":   "빈 캔버스를 클릭해 노드를 배치하세요",
-    "add-edge":   edgeSourceId ? "타겟 노드를 클릭하세요 · 빈 공간 클릭으로 취소" : "소스 노드를 클릭하세요",
-    "reposition": `새 위치를 클릭하세요 · "${editingNode?.title ?? ""}"`,
+    "default":     "노드 클릭 → 우측 패널에서 편집 · 엣지 클릭 → 삭제",
+    "add-node":    "빈 캔버스를 클릭해 노드를 배치하세요",
+    "add-edge":    edgeSourceId ? "타겟 노드를 클릭하세요 · 빈 공간 클릭으로 취소" : "소스 노드를 클릭하세요",
+    "reposition":  `새 위치를 클릭하세요 · "${editingNode?.title ?? ""}"`,
+    "edit-levels": rootNode ? "원 끝의 핸들을 드래그해 반경을 조절하세요" : "ROOT 노드가 없어 레벨을 배치할 수 없습니다",
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <GraphContext.Provider value={{ hoveredId, editingId: editingNode?.id ?? null, edgeSourceId, graphMode, setHoveredId }}>
+    <GraphContext.Provider value={{ hoveredId, editingId: editingNode?.id ?? null, edgeSourceId, graphMode, levels: localLevels, rootNode, setHoveredId }}>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
         {/* ── Top toolbar (full width) ──────────────────────────────────────── */}
@@ -445,6 +523,10 @@ function NodeGraphManagerInner({
             <ModeBtn active={graphMode === "add-edge"} accent="orange"
               onClick={() => switchMode(graphMode === "add-edge" ? "default" : "add-edge")}>
               <ArrowRight size={11} className="mr-1" />엣지 추가
+            </ModeBtn>
+            <ModeBtn active={graphMode === "edit-levels"} accent="purple"
+              onClick={() => switchMode(graphMode === "edit-levels" ? "default" : "edit-levels")}>
+              <Target size={11} className="mr-1" />레벨 편집
             </ModeBtn>
           </div>
 
@@ -529,6 +611,43 @@ function NodeGraphManagerInner({
             >
               <Background variant={BackgroundVariant.Dots} gap={40} size={1.5} color="#d1d5db" />
             </ReactFlow>
+
+            {/* Level boundary circles */}
+            {graphMode === "edit-levels" && rootNode && (
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none z-10"
+                style={{ overflow: "visible" }}
+              >
+                <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.zoom})`}>
+                  {[...localLevels].sort((a, b) => b.radius - a.radius).map((lvl) => (
+                    <circle
+                      key={lvl.id}
+                      cx={rootNode!.pos_x ?? 0}
+                      cy={rootNode!.pos_y ?? 0}
+                      r={lvl.radius}
+                      fill="none"
+                      stroke={lvl.color ?? "#3b82f6"}
+                      strokeWidth={1.5 / viewport.zoom}
+                      strokeDasharray={`${6 / viewport.zoom},${4 / viewport.zoom}`}
+                    />
+                  ))}
+                  {localLevels.map((lvl) => (
+                    <g
+                      key={`handle-${lvl.id}`}
+                      transform={`translate(${(rootNode!.pos_x ?? 0) + lvl.radius} ${rootNode!.pos_y ?? 0}) scale(${1 / viewport.zoom})`}
+                    >
+                      <rect
+                        x={-6} y={-6} width={12} height={12} rx={2}
+                        fill={lvl.color ?? "#3b82f6"}
+                        stroke="#fff" strokeWidth={1.5}
+                        style={{ cursor: "ew-resize", pointerEvents: "auto" }}
+                        onMouseDown={(e) => startLevelDrag(e, lvl)}
+                      />
+                    </g>
+                  ))}
+                </g>
+              </svg>
+            )}
 
             {/* Ghost node cursor */}
             <div ref={ghostNodeRef} className="fixed pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2" style={{ display: "none" }}>
@@ -620,6 +739,54 @@ function NodeGraphManagerInner({
                 )}
               </div>
             )}
+
+            {/* Level list panel */}
+            {graphMode === "edit-levels" && (
+              <div className="absolute top-3 left-3 z-30 w-72 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-gray-100">
+                  <span className="text-xs font-semibold text-gray-700">레벨(바운더리) 설정</span>
+                  <button
+                    onClick={addLevel}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-violet-50 text-violet-600 hover:bg-violet-100 text-[11px] font-medium transition-colors"
+                  >
+                    <Plus size={11} />레벨 추가
+                  </button>
+                </div>
+                {!rootNode && (
+                  <p className="px-3.5 py-3 text-[11px] text-amber-600">
+                    ROOT 노드(제목 &quot;Root&quot;)가 없어 반경을 배치할 기준점이 없습니다.
+                  </p>
+                )}
+                {[...localLevels].sort((a, b) => a.radius - b.radius).map((lvl) => (
+                  <div key={lvl.id} className="flex items-center gap-2 px-3.5 py-2 border-b border-gray-50 last:border-0">
+                    <input
+                      type="color"
+                      value={lvl.color ?? "#3b82f6"}
+                      onChange={(e) => { updateLocalLevelField(lvl.id, "color", e.target.value); }}
+                      onBlur={() => commitLevelField(lvl.id, "color")}
+                      className="w-6 h-6 rounded border border-gray-200 shrink-0 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={lvl.name}
+                      onChange={(e) => updateLocalLevelField(lvl.id, "name", e.target.value)}
+                      onBlur={() => commitLevelField(lvl.id, "name")}
+                      className="flex-1 min-w-0 text-xs text-gray-800 border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                    />
+                    <span className="text-[11px] font-mono text-gray-400 shrink-0">r={Math.round(lvl.radius)}</span>
+                    <button
+                      onClick={() => removeLevel(lvl.id)}
+                      className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+                {localLevels.length === 0 && (
+                  <p className="px-3.5 py-3 text-[11px] text-gray-400">아직 레벨이 없습니다. &quot;레벨 추가&quot;로 시작하세요.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ── Resize handle + Right panel ──────────────────────────────── */}
@@ -686,12 +853,13 @@ export default function NodeGraphManager(props: Props) {
 // ─── sub-components ───────────────────────────────────────────────────────────
 
 function ModeBtn({ children, active, onClick, accent = "gray" }: {
-  children: React.ReactNode; active: boolean; onClick: () => void; accent?: "gray" | "blue" | "orange";
+  children: React.ReactNode; active: boolean; onClick: () => void; accent?: "gray" | "blue" | "orange" | "purple";
 }) {
   const cls = {
     gray:   { on: "bg-gray-800 text-white",   off: "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50" },
     blue:   { on: "bg-blue-500 text-white",   off: "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50" },
     orange: { on: "bg-orange-500 text-white", off: "bg-white text-orange-600 border border-orange-200 hover:bg-orange-50" },
+    purple: { on: "bg-violet-500 text-white", off: "bg-white text-violet-600 border border-violet-200 hover:bg-violet-50" },
   }[accent];
   return (
     <button onClick={onClick}

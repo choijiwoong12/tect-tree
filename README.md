@@ -79,6 +79,29 @@ CREATE POLICY "own progress" ON reading_progress FOR ALL
   WITH CHECK (auth.uid() = user_id);
 ```
 
+### 3. `tree_levels`
+
+ROOT 노드로부터의 거리(반경) 기준으로 노드를 "레벨"로 자동 분류하기 위한 바운더리 정의 테이블입니다. 노드 레코드에는 레벨이 저장되지 않고, 항상 `거리 vs radius`로 실시간 계산됩니다 (바운더리를 수정하면 노드 소속도 즉시 바뀜).
+
+```sql
+CREATE TABLE tree_levels (
+  id         BIGSERIAL PRIMARY KEY,
+  name       TEXT NOT NULL DEFAULT '',
+  radius     FLOAT NOT NULL,           -- ROOT 기준 바운더리 반경 (바깥쪽 경계)
+  color      TEXT DEFAULT '#3b82f6',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE tree_levels ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "public read levels" ON tree_levels FOR SELECT USING (true);
+CREATE POLICY "authenticated write levels" ON tree_levels FOR ALL
+  USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+```
+
+`radius` 오름차순이 곧 Level 1 → Level 2 → ... 순서입니다. 모든 레벨의 반경보다 ROOT에서 더 멀리 떨어진 노드는 가장 바깥 레벨로 자동 편입됩니다.
+
 ---
 
 ## 주요 기능
