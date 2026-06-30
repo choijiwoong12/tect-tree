@@ -45,20 +45,21 @@
   }
 }
 
-/* Tiptap prose styles */
-.ProseMirror {
+/* Tiptap prose styles — 좁은 패널 에디터(RichEditor) 전용. .legacy-editor로 감싼 곳에만 적용되며,
+   유저 화면을 그대로 재현하는 전체화면 WYSIWYG 에디터(WysiwygEditor)는 별도 스코프(.wysiwyg-editor)를 쓴다. */
+.legacy-editor .ProseMirror {
   min-height: 200px;
   font-size: 14px;
   line-height: 1.7;
   color: #374151;
 }
 
-.ProseMirror p {
+.legacy-editor .ProseMirror p {
   margin: 0 0 8px;
 }
 
 /* H1 = 목차 구분 제목 */
-.ProseMirror h1 {
+.legacy-editor .ProseMirror h1 {
   font-size: 17px;
   font-weight: 700;
   color: #111827;
@@ -69,36 +70,62 @@
 }
 
 /* 첫 번째 H1은 위 마진 줄이기 */
-.ProseMirror h1:first-child {
+.legacy-editor .ProseMirror h1:first-child {
   margin-top: 4px;
 }
 
-.ProseMirror ul,
-.ProseMirror ol {
+.legacy-editor .ProseMirror ul,
+.legacy-editor .ProseMirror ol {
   padding-left: 20px;
   margin: 4px 0 8px;
 }
 
-.ProseMirror li {
+.legacy-editor .ProseMirror li {
   margin: 2px 0;
 }
 
-.ProseMirror hr {
+.legacy-editor .ProseMirror hr {
   border: none;
   border-top: 1px solid #e5e7eb;
   margin: 12px 0;
 }
 
-.ProseMirror mark {
+.legacy-editor .ProseMirror mark {
   background: #fef08a;
   border-radius: 2px;
   padding: 0 2px;
 }
 
-.ProseMirror p.is-editor-empty:first-child::before {
+.legacy-editor .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
   color: #9ca3af;
   pointer-events: none;
   height: 0;
+}
+
+/* 전체화면 WYSIWYG 에디터 — 유저가 보는 문서 화면(.document-body)과 동일한 타이포그래피.
+   h1/p/ul/ol/li/hr 등은 WysiwygEditor.tsx에서 Tailwind 임의 변형으로 직접 입힌다. */
+.wysiwyg-editor .ProseMirror mark {
+  background: rgba(254, 240, 138, 0.85);
+  color: #111827;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.wysiwyg-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: rgba(229, 229, 229, 0.3);
+  pointer-events: none;
+  height: 0;
+}
+
+/* 네이티브 스크롤바 숨김 — 유저 화면과 동일하게 우측 목차 레일만 보이게 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
