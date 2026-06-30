@@ -65,11 +65,21 @@ function ellipseScore(node: DocumentNode, level: TreeLevel): number {
 
 /**
  * 노드가 속한 레벨을 실시간 계산한다 (노드 레코드에는 저장하지 않음).
- * 레벨은 서로 독립된 타원이라 중첩/순서가 없으므로, 모든 레벨 중 정규화 거리가
- * 가장 작은(가장 안쪽에 가까운) 타원을 노드의 소속 레벨로 본다.
+ * 레벨 타원은 보통 서로 겹치며 중첩되므로(작은 레벨이 큰 레벨 안에 포함), 노드를
+ * 포함하는 타원 중 가장 작은(가장 안쪽) 타원에 배정한다 — 이렇게 해야 레벨 1에
+ * 속한 노드가 레벨 2에도 같이 집계되는 일이 없다. 어떤 타원에도 속하지 않으면
+ * 정규화 거리가 가장 작은 타원으로 fallback 한다.
  */
 export function resolveNodeLevel(node: DocumentNode, levels: TreeLevel[]): TreeLevel | null {
   if (levels.length === 0) return null;
+
+  const containing = levels.filter((lvl) => ellipseScore(node, lvl) <= 1);
+  if (containing.length > 0) {
+    return containing.reduce((smallest, lvl) =>
+      lvl.radius_x * lvl.radius_y < smallest.radius_x * smallest.radius_y ? lvl : smallest
+    );
+  }
+
   return levels.reduce((best, lvl) =>
     ellipseScore(node, lvl) < ellipseScore(node, best) ? lvl : best
   );

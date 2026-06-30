@@ -12,13 +12,10 @@ import {
   Bold,
   Italic,
   Underline as UnderlineIcon,
-  List,
-  ListOrdered,
   AlignLeft,
   AlignCenter,
   AlignRight,
   Heading1,
-  Highlighter,
   Undo,
   Redo,
   Minus,
@@ -204,13 +201,6 @@ export default function RichEditor({ content, onChange, placeholder }: RichEdito
           >
             <UnderlineIcon size={13} />
           </ToolBtn>
-          <ToolBtn
-            active={editor.isActive("highlight")}
-            onClick={() => editor.chain().focus().toggleHighlight().run()}
-            title="형광펜"
-          >
-            <Highlighter size={13} />
-          </ToolBtn>
         </ToolGroup>
 
         <Divider />
@@ -228,20 +218,6 @@ export default function RichEditor({ content, onChange, placeholder }: RichEdito
         <Divider />
 
         <ToolGroup>
-          <ToolBtn
-            active={editor.isActive("bulletList")}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            title="목록"
-          >
-            <List size={13} />
-          </ToolBtn>
-          <ToolBtn
-            active={editor.isActive("orderedList")}
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            title="번호 목록"
-          >
-            <ListOrdered size={13} />
-          </ToolBtn>
           <ToolBtn
             onClick={() => editor.chain().focus().setHorizontalRule().run()}
             title="구분선"

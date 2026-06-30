@@ -83,8 +83,9 @@ function ManagerNodeComponent({ data }: NodeProps) {
   const { docNode } = data as DocNodeData;
   const { hoveredId, editingId, edgeSourceId, graphMode, levels, setHoveredId } = useContext(GraphContext);
   const id = docNode.id;
-  const r = nodeRadius(docNode.node_kind);
-  const { fill, stroke } = nodeColor(docNode.node_kind);
+  const isRoot = docNode.title === "Root" || (docNode.node_kind as string) === "root";
+  const r = isRoot ? nodeRadius(docNode.node_kind) + 3 : nodeRadius(docNode.node_kind);
+  const { fill, stroke } = isRoot ? { fill: "#ef4444", stroke: "#fecaca" } : nodeColor(docNode.node_kind);
 
   const isEditing = editingId === id;
   const isEdgeSrc = edgeSourceId === id;
@@ -110,7 +111,15 @@ function ManagerNodeComponent({ data }: NodeProps) {
       <Handle type="target" position={Position.Top}
         style={{ opacity: 0, left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />
       <svg width={r * 2} height={r * 2} style={{ overflow: "visible", display: "block" }}>
-        <circle cx={r} cy={r} r={r} fill={circleFill} stroke={circleStroke} strokeWidth={sw} />
+        {isRoot ? (
+          <rect
+            x={r - r * 0.72} y={r - r * 0.72} width={r * 1.44} height={r * 1.44}
+            transform={`rotate(45 ${r} ${r})`}
+            fill={circleFill} stroke={circleStroke} strokeWidth={sw}
+          />
+        ) : (
+          <circle cx={r} cy={r} r={r} fill={circleFill} stroke={circleStroke} strokeWidth={sw} />
+        )}
         {isEdgeSrc && (
           <circle cx={r} cy={r} r={r + 4} fill="none" stroke="#f97316" strokeWidth={1.5} strokeDasharray="3,2" />
         )}
@@ -122,8 +131,9 @@ function ManagerNodeComponent({ data }: NodeProps) {
         transform: "translateX(-50%)", whiteSpace: "nowrap",
         fontSize: docNode.node_kind === "category" ? 12 : 11,
         fontFamily: "monospace", pointerEvents: "none",
-        fontWeight: docNode.node_kind === "category" ? 700 : 400,
+        fontWeight: docNode.node_kind === "category" || isRoot ? 700 : 400,
         color: isEditing ? "#ef4444" : isEdgeSrc ? "#f97316"
+          : isRoot ? "#ef4444"
           : nodeLevel?.color ? nodeLevel.color
           : isHovered ? "#111827" : "#6b7280",
       }}>
@@ -617,6 +627,8 @@ function NodeGraphManagerInner({
               onPaneClick={handlePaneClick}
               onEdgeClick={handleEdgeClick}
               fitView={false}
+              minZoom={0.02}
+              maxZoom={3}
               proOptions={{ hideAttribution: true }}
               style={{
                 background: "#F5F7FA",

@@ -121,9 +121,6 @@ export default function NodeDetail({
           <h3 className="text-sm font-semibold text-gray-900">
             {isNew ? "새 노드 추가" : (node?.title ?? "")}
           </h3>
-          {!isNew && node && (
-            <span className="text-xs text-gray-400">#{node.id}</span>
-          )}
         </div>
         <div className="flex items-center gap-2">
           {!isNew && node && (
@@ -196,16 +193,16 @@ export default function NodeDetail({
                 onChange={(e) => setNodeKind(e.target.value as NodeKind)}
                 className="input"
               >
-                <option value="category">카테고리</option>
                 <option value="content">문서</option>
+                <option value="category">카테고리</option>
                 <option value="file">파일</option>
               </select>
             </Field>
 
-            <Field label="가격 (원)">
+            <Field label="가격 (RP)">
               <div className="relative">
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-                  ₩
+                  RP
                 </span>
                 <input
                   type="text"
@@ -216,7 +213,7 @@ export default function NodeDetail({
                     setPrice(raw ? Number(raw).toLocaleString() : "");
                   }}
                   placeholder="무료"
-                  className="input pl-6"
+                  className="input pl-8"
                 />
               </div>
             </Field>
