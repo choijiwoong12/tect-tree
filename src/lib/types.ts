@@ -47,7 +47,10 @@ export interface Announcement {
 export interface TreeLevel {
   id: number;
   name: string;
-  radius: number; // ROOT 기준 바운더리 반경 (바깥쪽 경계)
+  center_x: number; // 타원 중심 (레벨마다 독립적, ROOT와 무관)
+  center_y: number;
+  radius_x: number; // 가로 반경
+  radius_y: number; // 세로 반경
   color: string | null;
   created_at?: string;
   updated_at?: string;

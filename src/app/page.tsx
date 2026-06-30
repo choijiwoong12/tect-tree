@@ -168,7 +168,9 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
     }
   }
 
-  async function handleCreateLevel(data: Pick<TreeLevel, "name" | "radius" | "color">): Promise<TreeLevel> {
+  async function handleCreateLevel(
+    data: Pick<TreeLevel, "name" | "center_x" | "center_y" | "radius_x" | "radius_y" | "color">
+  ): Promise<TreeLevel> {
     try {
       const created = await createLevel(data);
       await loadData();
@@ -181,7 +183,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
 
   async function handleUpdateLevel(
     id: number,
-    data: Partial<Pick<TreeLevel, "name" | "radius" | "color">>
+    data: Partial<Pick<TreeLevel, "name" | "center_x" | "center_y" | "radius_x" | "radius_y" | "color">>
   ): Promise<TreeLevel> {
     try {
       const updated = await updateLevel(id, data);
@@ -266,7 +268,7 @@ function AdminShell({ session, onSignOut }: { session: Session; onSignOut: () =>
 
         {/* Main content */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          {tab === "dashboard" && <Dashboard nodes={nodes} />}
+          {tab === "dashboard" && <Dashboard nodes={nodes} levels={levels} />}
 
           {(tab === "nodes" || tab === "search") && (
             <NodeGraphManager

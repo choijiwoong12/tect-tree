@@ -206,13 +206,13 @@ export async function fetchAllLevels(): Promise<TreeLevel[]> {
   const { data, error } = await supabase
     .from("tree_levels")
     .select("*")
-    .order("radius", { ascending: true });
+    .order("id", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
 
 export async function createLevel(
-  payload: Pick<TreeLevel, "name" | "radius" | "color">
+  payload: Pick<TreeLevel, "name" | "center_x" | "center_y" | "radius_x" | "radius_y" | "color">
 ): Promise<TreeLevel> {
   const { data, error } = await supabase
     .from("tree_levels")

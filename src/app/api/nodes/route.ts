@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, CORS_HEADERS } from "@/lib/supabase-server";
-import { findRootNode, resolveNodeLevel } from "@/lib/utils";
+import { resolveNodeLevel } from "@/lib/utils";
 import type { DocumentNode } from "@/lib/types";
 
 export async function OPTIONS() {
@@ -17,8 +17,8 @@ export async function GET() {
       .order("id", { ascending: true }),
     supabase
       .from("tree_levels")
-      .select("id, name, radius, color")
-      .order("radius", { ascending: true }),
+      .select("id, name, center_x, center_y, radius_x, radius_y, color")
+      .order("id", { ascending: true }),
   ]);
 
   if (nodesError) {
@@ -28,9 +28,8 @@ export async function GET() {
     return NextResponse.json({ error: levelsError.message }, { status: 500, headers: CORS_HEADERS });
   }
 
-  const root = findRootNode((nodes ?? []) as DocumentNode[]);
   const withLevels = (nodes ?? []).map((node) => {
-    const level = resolveNodeLevel(node as DocumentNode, root, levels ?? []);
+    const level = resolveNodeLevel(node as DocumentNode, levels ?? []);
     return { ...node, level_id: level?.id ?? null, level_name: level?.name ?? null };
   });
 

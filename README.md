@@ -81,13 +81,16 @@ CREATE POLICY "own progress" ON reading_progress FOR ALL
 
 ### 3. `tree_levels`
 
-ROOT 노드로부터의 거리(반경) 기준으로 노드를 "레벨"로 자동 분류하기 위한 바운더리 정의 테이블입니다. 노드 레코드에는 레벨이 저장되지 않고, 항상 `거리 vs radius`로 실시간 계산됩니다 (바운더리를 수정하면 노드 소속도 즉시 바뀜).
+각 레벨은 독립된 타원(중심 좌표 + 가로/세로 반경)으로 정의되는 바운더리입니다. 노드 레코드에는 레벨이 저장되지 않고, 노드가 어느 레벨 타원에 가장 가까운지(정규화 거리 최소)를 항상 실시간 계산합니다 — 바운더리를 옮기거나 크기를 바꾸면 노드 소속도 즉시 바뀝니다.
 
 ```sql
 CREATE TABLE tree_levels (
   id         BIGSERIAL PRIMARY KEY,
   name       TEXT NOT NULL DEFAULT '',
-  radius     FLOAT NOT NULL,           -- ROOT 기준 바운더리 반경 (바깥쪽 경계)
+  center_x   FLOAT NOT NULL DEFAULT 0,
+  center_y   FLOAT NOT NULL DEFAULT 0,
+  radius_x   FLOAT NOT NULL DEFAULT 100,  -- 가로 반경
+  radius_y   FLOAT NOT NULL DEFAULT 100,  -- 세로 반경
   color      TEXT DEFAULT '#3b82f6',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -100,7 +103,7 @@ CREATE POLICY "authenticated write levels" ON tree_levels FOR ALL
   WITH CHECK (auth.role() = 'authenticated');
 ```
 
-`radius` 오름차순이 곧 Level 1 → Level 2 → ... 순서입니다. 모든 레벨의 반경보다 ROOT에서 더 멀리 떨어진 노드는 가장 바깥 레벨로 자동 편입됩니다.
+레벨끼리 중첩/순서 개념은 없습니다. 노드는 모든 레벨 타원 중 `((x-center_x)/radius_x)² + ((y-center_y)/radius_y)²` 값이 가장 작은(가장 안쪽/가까운) 레벨에 속하는 것으로 계산됩니다.
 
 ---
 
