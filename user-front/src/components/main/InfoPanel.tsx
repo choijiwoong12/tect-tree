@@ -4,10 +4,10 @@ import type { User } from "@/types/api";
 import { BUSINESS_INFO } from "@/content/business";
 import { formatCallsign } from "@/lib/callsign/data";
 
-// 좌하단 정보 패널 — 디자인: 회원정보 X46 Y729 W263 H292 (1920 프레임, DesignOverlay가 스케일).
-// - 로그인 전: 사업자 정보(표시의무).
-// - 로그인 후: 회원 정보. 중앙 노드 클릭으로 on/off 토글(showMember). off면 숨김.
-// 하단 버튼: ( CUSTOMER SERVICE ) / ( N O T I C E ) / [ LOG OUT ].
+// 정보 패널 (1920 프레임, DesignOverlay가 스케일):
+// - 회원정보: 로그인 + 중앙 노드(콜사인) 클릭 토글 ON일 때 좌측(X32 Y729) 표시.
+// - 사업자정보: 항상 화면 최하단 얇은 바(전폭·검은 배경) — 그래프 위에 오되 노드와 겹쳐 보이지 않음.
+//   한 줄·공백 없이 "/" 구분, 이용약관/개인정보처리방침은 괄호 없는 버튼(기능 유지).
 export function InfoPanel({
   user,
   showMember,
@@ -19,6 +19,8 @@ export function InfoPanel({
   onOpenNotice,
   onOpenShop,
   onOpenSubscriptionManage,
+  onOpenTerms,
+  onOpenPrivacy,
   onLogout,
 }: {
   user: User | null;
@@ -31,55 +33,67 @@ export function InfoPanel({
   onOpenNotice?: () => void;
   onOpenShop?: () => void;
   onOpenSubscriptionManage?: () => void;
+  onOpenTerms?: () => void;
+  onOpenPrivacy?: () => void;
   onLogout?: () => void;
 }) {
-  // 로그인 + 토글 off → 패널 숨김
-  if (user && !showMember) return null;
-
   // 구독중 = 구독 만료일(next_billing_date)이 아직 안 지남 (해지했어도 만료 전이면 유지)
   const subscribed = !!user?.subscribedUntil && new Date(user.subscribedUntil).getTime() > Date.now();
   const onSubscriptionClick = subscribed ? onOpenSubscriptionManage : onOpenShop;
 
   return (
-    <div
-      className={
-        "pointer-events-auto absolute left-[46px] z-40 font-pixel text-white " +
-        // 로그인: 회원정보(X46 Y729). 로그아웃: 사업자 정보는 좌하단 구석으로.
-        (user ? "top-[729px] h-[292px] w-[263px] text-[21px] leading-none" : "bottom-[24px] w-[440px]")
-      }
-    >
-      {user ? (
-        <MemberInfo
-          user={user}
-          subscribed={subscribed}
-          lastNode={lastNode}
-          progress={progress}
-          onLastNodeClick={onLastNodeClick}
-          onEditCallsign={onEditCallsign}
-          onOpenCustomerService={onOpenCustomerService}
-          onOpenNotice={onOpenNotice}
-          onSubscriptionClick={onSubscriptionClick}
-          onLogout={onLogout}
-        />
-      ) : (
-        <BusinessInfo />
+    <>
+      {user && showMember && (
+        <div className="pointer-events-auto absolute left-[32px] top-[729px] z-40 h-[292px] w-[263px] font-pixel text-[21px] leading-none text-white">
+          <MemberInfo
+            user={user}
+            subscribed={subscribed}
+            lastNode={lastNode}
+            progress={progress}
+            onLastNodeClick={onLastNodeClick}
+            onEditCallsign={onEditCallsign}
+            onOpenCustomerService={onOpenCustomerService}
+            onOpenNotice={onOpenNotice}
+            onSubscriptionClick={onSubscriptionClick}
+            onLogout={onLogout}
+          />
+        </div>
       )}
-    </div>
+      <BusinessBar onOpenTerms={onOpenTerms} onOpenPrivacy={onOpenPrivacy} />
+    </>
   );
 }
 
-function BusinessInfo() {
+// 사업자정보 바 — 화면 최하단 상시 표시. 프레임(1920)보다 넓은 창에서도 전폭이 되도록 좌우로 확장
+// (바깥 DesignOverlay가 overflow-hidden으로 화면 끝에서 잘림). 검은 배경이라 뒤의 그래프를 가린다.
+function BusinessBar({
+  onOpenTerms,
+  onOpenPrivacy,
+}: {
+  onOpenTerms?: () => void;
+  onOpenPrivacy?: () => void;
+}) {
+  const c = (s: string) => s.replace(/\s+/g, ""); // 예시 디자인대로 띄어쓰기 제거
+  const line = [
+    c(BUSINESS_INFO.name),
+    `대표${c(BUSINESS_INFO.ceo)}`,
+    `사업자등록번호${c(BUSINESS_INFO.bizNo)}`,
+    `통신판매업신고${c(BUSINESS_INFO.mailOrderNo)}`,
+    c(BUSINESS_INFO.address),
+    c(BUSINESS_INFO.email),
+    c(BUSINESS_INFO.phone),
+  ].join("/");
+
   return (
-    <div className="text-[13px] leading-relaxed text-white/45">
-      <div>{BUSINESS_INFO.name}</div>
-      <div>대표 {BUSINESS_INFO.ceo}</div>
-      <div>사업자등록번호 {BUSINESS_INFO.bizNo}</div>
-      <div>통신판매업신고 {BUSINESS_INFO.mailOrderNo}</div>
-      <div>{BUSINESS_INFO.address}</div>
-      <div>
-        {BUSINESS_INFO.email} · {BUSINESS_INFO.phone}
-      </div>
-      <div className="mt-2">( 이용약관 )&nbsp;&nbsp;( 개인정보처리방침 )</div>
+    <div className="pointer-events-auto absolute bottom-0 left-[-2000px] right-[-2000px] z-40 bg-black py-[7px] text-center font-pixel text-[13px] leading-none text-white/80">
+      {line}/
+      <button onClick={onOpenTerms} className="cursor-pointer transition-colors hover:text-white">
+        이용약관
+      </button>
+      /
+      <button onClick={onOpenPrivacy} className="cursor-pointer transition-colors hover:text-white">
+        개인정보처리방침
+      </button>
     </div>
   );
 }

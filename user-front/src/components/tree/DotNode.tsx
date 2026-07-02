@@ -17,19 +17,19 @@ const centerHandleStyle = {
   opacity: 0,
 } as const
 
-// 크기 체계: 열람 노드는 항상 '확장' 크기. 미열람 노드는 기본 '작은' 크기 → hover 시 2배(=확장)로 커지며 목차 표시.
+// 크기 체계: 열람 노드는 항상 '확장' 크기. 미열람 노드는 기본 '작은' 크기(24pt) → hover 시 확장(30)+목차 표시.
 const SIZE_EXPANDED = 30 // 확장(열람 / 미열람 hover) 도트
-const SIZE_SMALL = 15 // 미열람 기본 도트 (확장의 절반)
+const SIZE_SMALL = 24 // 미열람 기본 도트
 const COLOR_UNLOCKED = '#ffffff'
 const COLOR_LOCKED = '#404040'
 const LABEL_COLOR_UNLOCKED = '#ffffff'
 const LABEL_COLOR_LOCKED = '#595959'
 const LABEL_SIZE = 33 // 확장 제목 = 열람 노드(항상) / 미열람 hover
-const LABEL_SIZE_SMALL = 17 // 미열람 기본 제목
+const LABEL_SIZE_SMALL = 26 // 미열람 기본 제목 (도트와 같은 비율로 확대: 33 × 24/30)
 const LABEL_GAP = 6 // 도트 오른쪽 라벨 간격
-const TOC_DOT = 14 // 목차 원 지름(확장)
-const TOC_DOT_SMALL = 7 // 목차 원 지름(미열람 기본, 절반)
+const TOC_DOT = 14 // 목차 원 지름(hover 리스트)
 const TOC_TEXT_SIZE = 17 // NanumMyeongjo 목차 텍스트
+const CLOCK_DOT = 6 // 미열람 기본 시계형 목차 점 지름
 
 // 루트 과녁 안쪽 채움(뒤 흰 노드/선 가림). 노드는 zIndex로 엣지 위에 있어 글씨가 선에 안 가려지고,
 // 엣지를 끊는 검은 배경/링은 두지 않는다(엣지 연속성 유지).
@@ -80,11 +80,11 @@ export function DotNode({ data }: NodeProps) {
   const indexCount = (data.indexCount as number | undefined) ?? indexItems.length
   const readCount = (data.readCount as number | undefined) ?? 0
 
-  // 확장 = 열람한 노드(항상) 또는 디테일 모드에서 hover. 별자리(줌아웃)에선 hover로 안 커짐.
-  const expanded = isViewed || (hovered && detailVisible)
-  const dotSize = expanded ? SIZE_EXPANDED : SIZE_SMALL
-  const titleSize = expanded ? LABEL_SIZE : LABEL_SIZE_SMALL
-  const tocDotSize = expanded ? TOC_DOT : TOC_DOT_SMALL
+  const hoverActive = hovered && detailVisible // 별자리(줌아웃)에선 hover 무시
+  // 크기: 열람 노드는 항상 확장 크기(hover에도 변화 없음), 미열람은 hover 시에만 확장
+  const big = isViewed || hoverActive
+  const dotSize = big ? SIZE_EXPANDED : SIZE_SMALL
+  const titleSize = big ? LABEL_SIZE : LABEL_SIZE_SMALL
   const fg = isViewed ? LABEL_COLOR_UNLOCKED : LABEL_COLOR_LOCKED // 미열람은 회색 유지
   const showToc = showLabel && indexCount > 0
 
@@ -126,17 +126,26 @@ export function DotNode({ data }: NodeProps) {
         }}
       />
 
-      {/* 목차(TOC) — 도트 아래 */}
-      {showToc && expanded && (
-        // 확장: 원 + 목차 제목. 열람은 읽은 만큼 채움, 미열람 hover는 빈 원.
-        <div className="absolute left-0 top-full mt-[10px] flex flex-col gap-[6px] whitespace-nowrap">
+      {/* 목차(TOC) 리스트 — hover 시 페이드인+슬라이드(열람/미열람 공통). 항상 렌더해두고 opacity로
+          전환해야 부드럽다(조건부 마운트는 탁 하고 바뀜). 숨김 상태에선 hover 영역을 넓히지 않게 클릭/hover 통과. */}
+      {showToc && (
+        <div
+          className="absolute left-0 top-full mt-[10px] flex flex-col gap-[6px] whitespace-nowrap rounded-[2px] transition-all duration-300 ease-out"
+          style={{
+            backgroundColor: '#000',
+            padding: '6px 8px',
+            opacity: hoverActive ? 1 : 0,
+            transform: hoverActive ? 'translateY(0)' : 'translateY(-6px)',
+            pointerEvents: hoverActive ? 'auto' : 'none',
+          }}
+        >
           {indexItems.map((item, i) => {
             const read = isViewed && i < readCount
             return (
               <div key={i} className="flex items-center gap-[10px]">
                 <span
                   className="shrink-0 rounded-full border-2"
-                  style={{ width: tocDotSize, height: tocDotSize, borderColor: fg, backgroundColor: read ? '#ffffff' : 'transparent' }}
+                  style={{ width: TOC_DOT, height: TOC_DOT, borderColor: fg, backgroundColor: read ? '#ffffff' : 'transparent' }}
                 />
                 <span className="font-myeongjo leading-none" style={{ fontSize: TOC_TEXT_SIZE, color: fg }}>
                   {item}
@@ -146,17 +155,32 @@ export function DotNode({ data }: NodeProps) {
           })}
         </div>
       )}
-      {showToc && !expanded && (
-        // 미열람 기본: 목차 개수만큼 작은 빈 회색 원만 (제목 없음)
-        <div className="absolute left-0 top-full mt-[6px] flex flex-col gap-[5px]">
-          {Array.from({ length: indexCount }).map((_, i) => (
-            <span
-              key={i}
-              className="shrink-0 rounded-full border-2"
-              style={{ width: tocDotSize, height: tocDotSize, borderColor: COLOR_LOCKED }}
-            />
-          ))}
-        </div>
+      {showToc && (
+        // 기본(비hover): 목차 개수만큼 작은 점을 도트 주위에 시계 문자판처럼 원형 배치(12시부터 시계방향).
+        // 열람 노드는 읽은 항목까지 흰 점, 나머지는 회색. hover 시 페이드아웃(리스트와 크로스페이드).
+        <>
+          {Array.from({ length: indexCount }).map((_, i) => {
+            const stepDeg = indexCount > 12 ? 360 / indexCount : 30
+            const rad = ((-90 + i * stepDeg) * Math.PI) / 180
+            const radius = dotSize / 2 + 9
+            const x = Math.cos(rad) * radius
+            const y = Math.sin(rad) * radius
+            const read = isViewed && i < readCount
+            return (
+              <span
+                key={i}
+                className="pointer-events-none absolute left-1/2 top-1/2 z-[1] rounded-full transition-opacity duration-300"
+                style={{
+                  width: CLOCK_DOT,
+                  height: CLOCK_DOT,
+                  backgroundColor: read ? '#ffffff' : COLOR_LOCKED,
+                  transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                  opacity: hoverActive ? 0 : 1,
+                }}
+              />
+            )
+          })}
+        </>
       )}
 
       <Handle type="source" position={Position.Bottom} style={centerHandleStyle} isConnectable={false} />

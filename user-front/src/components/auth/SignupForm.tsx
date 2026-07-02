@@ -129,7 +129,7 @@ export function SignupForm({ onComplete }: SignupFormProps) {
       </div>
 
       {/* 약관 박스 — X971 Y222 W841 H491, NanumMyeongjo 25, 우측 정렬, 테두리 없음(스크롤) */}
-      <div className="absolute left-[971px] top-[222px] w-[841px] h-[491px] overflow-y-auto">
+      <div className="absolute left-[971px] top-[222px] w-[841px] h-[491px] overflow-y-auto scrollbar-hide">
         <pre className="whitespace-pre-wrap break-words text-right font-myeongjo text-[25px] leading-relaxed text-white/50">
 {PRIVACY_POLICY}
         </pre>

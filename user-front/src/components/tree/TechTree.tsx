@@ -22,7 +22,7 @@ interface TechTreeProps {
 export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
   const { user, logout, refreshUser } = useAuth()
   const [showMember, setShowMember] = useState(true)
-  const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub' | 'notice'>(null)
+  const [modal, setModal] = useState<null | 'shop' | 'cs' | 'sub' | 'notice' | 'terms' | 'privacy'>(null)
   const [unlockTarget, setUnlockTarget] = useState<ContentNodeInfo | null>(null)
   const [viewerNodeId, setViewerNodeId] = useState<number | null>(null)
   // 이번 세션에 새로 '열어본' 노드 — 즉시 흰색/큰 노드로 반영
@@ -128,6 +128,8 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
           onOpenNotice={() => setModal('notice')}
           onOpenShop={() => setModal('shop')}
           onOpenSubscriptionManage={() => setModal('sub')}
+          onOpenTerms={() => setModal('terms')}
+          onOpenPrivacy={() => setModal('privacy')}
           onLogout={logout}
         />
       </DesignOverlay>
@@ -172,6 +174,12 @@ export function TechTree({ onLoginClick, onEditCallsign }: TechTreeProps) {
       {modal === 'cs' && <CustomerServiceModal onClose={() => setModal(null)} />}
       {modal === 'sub' && <SubscriptionModal onClose={() => setModal(null)} />}
       {modal === 'notice' && <NoticePage rp={user?.rp_balance ?? 0} onClose={() => setModal(null)} />}
+      {modal === 'terms' && (
+        <NoticePage rp={user?.rp_balance ?? 0} onClose={() => setModal(null)} variant="legal" initialSelect="terms" />
+      )}
+      {modal === 'privacy' && (
+        <NoticePage rp={user?.rp_balance ?? 0} onClose={() => setModal(null)} variant="legal" initialSelect="privacy" />
+      )}
     </div>
   )
 }

@@ -89,8 +89,8 @@ export function CallSignWizard({ onComplete, onBack, initialCallsign }: CallSign
         ASSIGNMENT
       </h1>
 
-      {/* 브레드크럼 — X132 Y428, NanumMyeongjo 20, 현재 단계 빨강 */}
-      <div className="absolute left-[132px] top-[428px] font-myeongjo text-[20px] whitespace-nowrap">
+      {/* 브레드크럼 — 아래 선택지 그리드(X148 W700)와 텍스트 박스 폭을 맞춤. 라벨이 길어 넘치면 줄바꿈. */}
+      <div className="absolute left-[148px] top-[428px] w-[700px] font-myeongjo text-[20px]">
         [{" "}
         {CALLSIGN_STEPS.map((label, i) => (
           <span key={i}>
@@ -139,10 +139,11 @@ export function CallSignWizard({ onComplete, onBack, initialCallsign }: CallSign
         </div>
       )}
 
-      {/* 수준/성취도 선택지 — TODO: 다음 배치에서 피그마 값으로 위치/폰트 픽셀 매칭(임시 배치) */}
+      {/* 수준/성취도 선택지 — 알파벳/직업군 그리드와 동일하게 justify-between으로 한 줄 양끝정렬,
+          위 브레드크럼(X148 W700)과 텍스트 박스 너비를 맞춤 */}
       {(stage === 2 || stage === 3) && (
-        <div className="absolute left-[148px] top-[547px] w-[700px]">
-          <div className="flex flex-wrap gap-x-7 gap-y-6 font-pixel text-[40px] leading-none">
+        <div className="absolute left-[148px] top-[547px] w-[700px] font-pixel text-[40px] leading-none">
+          <div className="flex justify-between">
             {stage === 2 &&
               EXPERIENCE_LEVELS.map((l) => (
                 <span key={l.level} onClick={() => setLevel(l.level)} className={optClass(level === l.level)}>
@@ -159,16 +160,16 @@ export function CallSignWizard({ onComplete, onBack, initialCallsign }: CallSign
         </div>
       )}
 
-      {/* 우측 설명 제목 — 브레드크럼과 같은 줄(Y428), 우측 정렬 */}
+      {/* 우측 설명 제목 — 좌측 그리드(끝 848)와 간격 확보를 위해 조금 더 오른쪽으로(우측 끝 1812는 유지) */}
       {descTitle && (
-        <div className="absolute left-[971px] top-[428px] w-[841px] text-right font-myeongjo text-[20px] text-white">
+        <div className="absolute left-[1011px] top-[428px] w-[801px] text-right font-myeongjo text-[20px] text-white">
           {descTitle}
         </div>
       )}
 
       {/* 우측 설명 본문 — 선택지(알파벳/직업군) 첫 줄과 같은 Y547에서 시작, 우측 정렬, 행간 넉넉히(조정 가능) */}
       {descBody && (
-        <div className="absolute left-[971px] top-[547px] w-[841px] max-h-[380px] overflow-y-auto whitespace-pre-line text-right font-myeongjo text-[20px] leading-loose text-white/90">
+        <div className="absolute left-[1011px] top-[547px] w-[801px] max-h-[380px] overflow-y-auto scrollbar-hide whitespace-pre-line text-right font-myeongjo text-[20px] leading-loose text-white/90">
           {descBody}
         </div>
       )}

@@ -83,7 +83,7 @@ export function LandingIntro({ onEnter }: { onEnter: () => void }) {
           draggable={false}
           onPointerDown={onPointerDown}
           style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-          className="h-[46vh] max-h-[460px] w-auto object-contain select-none touch-none cursor-grab active:cursor-grabbing mix-blend-screen"
+          className="h-[23vh] max-h-[230px] w-auto object-contain select-none touch-none cursor-grab active:cursor-grabbing mix-blend-screen"
         />
       </div>
     </div>

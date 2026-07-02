@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { DesignOverlay } from "@/components/common/DesignOverlay";
+
+// DesignOverlay와 동일한 1920×1080 기준 스케일 계산 — 메인 TopBar와 로고 크기를 픽셀 단위로 맞추기 위해
+// 헤더 영역도 같은 스케일의 DesignOverlay로 그리고, 그 실제 렌더 높이(74*scale)만큼 본문 스페이서를 확보한다.
+const DESIGN_W = 1920;
+const DESIGN_H = 1080;
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface DocumentViewerProps {
   nodeId: number;
@@ -34,8 +41,16 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scale, setScale] = useState(1);
 
   useEffect(() => setMounted(true), []);
+
+  useIsoLayoutEffect(() => {
+    const update = () => setScale(Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H));
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -123,26 +138,30 @@ export function DocumentViewer({ nodeId, onClose }: DocumentViewerProps) {
 
   return createPortal(
     <div className={`fixed inset-0 z-[100] flex flex-col ${bg} ${text} transition-colors duration-300`}>
-      {/* 헤더 — 메인 TopBar와 동일 규격(빨간 줄 z-10로 로고 위 관통, 로고 left-28/top-37/27px) */}
-      <div className="relative h-[74px] shrink-0">
-        <div className="pointer-events-none absolute left-0 right-0 top-[37px] z-10 h-px bg-[#FE0000]" />
+      {/* 헤더 스페이서 — 실제 시각 헤더는 아래 DesignOverlay로 그려짐. 스케일 적용 실제 높이(74*scale)만큼만 공간 확보. */}
+      <div style={{ height: 74 * scale }} className="shrink-0" />
+
+      {/* 헤더(로고+빨간줄+테마토글) — 메인 TopBar와 동일한 1920 기준 스케일(DesignOverlay)로 그려 로고 크기를 정확히 맞춘다.
+          빨간 줄은 로고/토글 뒤(아래)로 가도록 z-index 없이 둠. */}
+      <DesignOverlay z={110}>
+        <div className="pointer-events-none absolute left-0 right-0 top-[37px] h-px bg-[#FE0000]" />
         <button
           onClick={onClose}
           title="메인으로 나가기"
-          className="absolute left-[28px] top-[37px] -translate-y-1/2 font-pixel text-[27px] leading-none whitespace-nowrap"
+          className="pointer-events-auto absolute left-[28px] top-[37px] -translate-y-1/2 cursor-pointer font-pixel text-[27px] leading-none whitespace-nowrap"
         >
           ATHENA DOCTRINE
         </button>
         <button
           onClick={() => setIsLightMode((v) => !v)}
           aria-label="테마 전환"
-          className={`absolute right-[21px] top-[37px] -translate-y-1/2 inline-flex h-[22px] w-[42px] items-center rounded-full ${isLightMode ? "bg-neutral-400" : "bg-neutral-600"}`}
+          className={`pointer-events-auto absolute right-[21px] top-[37px] -translate-y-1/2 inline-flex h-[22px] w-[42px] items-center rounded-full ${isLightMode ? "bg-neutral-400" : "bg-neutral-600"}`}
         >
           <span
             className={`inline-block h-[14px] w-[14px] rounded-full bg-white transition-transform duration-200 ${isLightMode ? "translate-x-[24px]" : "translate-x-[4px]"}`}
           />
         </button>
-      </div>
+      </DesignOverlay>
 
       {/* 본문(넓게) + 우측 목차 레일(토글 바로 아래, 우측 끝 절대배치) */}
       <div className="relative flex-1 min-h-0">
