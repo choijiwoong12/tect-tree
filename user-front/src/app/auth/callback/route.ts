@@ -39,7 +39,15 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('[callback] exchangeCodeForSession error:', error.message)
-      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
+      // 자기치유: 잔여/손상 sb-* 쿠키(구버전 포맷 등)가 원인일 수 있으므로 전부 제거하고 돌려보낸다.
+      // 사용자는 아무 조치 없이 다음 로그인 시도가 깨끗한 상태에서 시작됨.
+      const res = NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
+      for (const c of cookieStore.getAll()) {
+        if (c.name.startsWith('sb-')) {
+          res.cookies.set(c.name, '', { maxAge: 0, path: '/' })
+        }
+      }
+      return res
     }
 
     if (data.user) {
@@ -55,6 +63,7 @@ export async function GET(request: Request) {
         },
         { onConflict: 'id' }
       )
+      console.log('[callback] login success:', data.user.email)
     }
 
     return NextResponse.redirect(`${origin}${next}`)
