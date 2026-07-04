@@ -17,14 +17,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { useState } from "react";
-import { useNodeEditor } from "./useNodeEditor";
-
-const FONT_SIZES = [
-  { label: "소 (12px)", value: "12px" },
-  { label: "보통 (14px)", value: "14px" },
-  { label: "대 (18px)", value: "18px" },
-  { label: "특대 (24px)", value: "24px" },
-];
+import { useNodeEditor, FONT_SIZES } from "./useNodeEditor";
 
 interface RichEditorProps {
   content: string;

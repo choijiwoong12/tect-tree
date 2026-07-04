@@ -3,7 +3,7 @@
 import { EditorContent } from "@tiptap/react";
 import { Bold, Italic, Underline as UnderlineIcon, Heading1, Minus, Undo, Redo, Save, X, Minimize2 } from "lucide-react";
 import clsx from "clsx";
-import { useNodeEditor } from "./useNodeEditor";
+import { useNodeEditor, FONT_SIZES } from "./useNodeEditor";
 
 // 유저 화면 DocumentViewer의 .document-body와 동일한 타이포그래피 — 실제로 읽힐 모습 그대로 편집한다.
 const DOCUMENT_BODY_CLASS =
@@ -38,6 +38,8 @@ export default function WysiwygEditor({
 
   if (!editor) return null;
 
+  const currentFontSize = editor.getAttributes("textStyle").fontSize ?? "";
+
   return (
     <div className={clsx(className, "wysiwyg-editor z-50 bg-[#0a0a0a] text-neutral-100 flex flex-col")}>
       {/* 헤더 — 유저 화면 헤더(ATHENA DOCTRINE 로고 + 빨간 줄)와 동일한 구성 */}
@@ -66,6 +68,28 @@ export default function WysiwygEditor({
 
       {/* 서식 툴바 */}
       <div className="flex items-center gap-1 px-6 py-2 border-b border-white/10 bg-white/[0.03] shrink-0">
+        <select
+          value={currentFontSize}
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            if (e.target.value) {
+              editor.chain().focus().setFontSize(e.target.value).run();
+            } else {
+              editor.chain().focus().unsetFontSize().run();
+            }
+          }}
+          className="text-xs text-neutral-300 bg-white/5 border border-white/10 rounded-md px-1.5 py-1 focus:outline-none hover:border-white/20 cursor-pointer h-[26px]"
+        >
+          <option value="">크기</option>
+          {FONT_SIZES.map((fs) => (
+            <option key={fs.value} value={fs.value} className="text-neutral-900">
+              {fs.label}
+            </option>
+          ))}
+        </select>
+
+        <div className="w-px h-4 bg-white/10 mx-1" />
+
         <DarkToolBtn active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="굵게">
           <Bold size={13} />
         </DarkToolBtn>

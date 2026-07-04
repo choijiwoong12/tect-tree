@@ -57,6 +57,14 @@ export const FontSize = Extension.create({
   },
 });
 
+// RichEditor(좁은 패널)와 WysiwygEditor(전체화면) 둘 다의 글자 크기 드롭다운이 공유하는 옵션 목록
+export const FONT_SIZES = [
+  { label: "소 (12px)", value: "12px" },
+  { label: "보통 (14px)", value: "14px" },
+  { label: "대 (18px)", value: "18px" },
+  { label: "특대 (24px)", value: "24px" },
+];
+
 export interface TocItem {
   level: number;
   text: string;
