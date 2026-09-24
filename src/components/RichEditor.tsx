@@ -1,0 +1,263 @@
+"use client";
+
+import { EditorContent } from "@tiptap/react";
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Heading1,
+  Undo,
+  Redo,
+  Minus,
+  BookOpen,
+  X,
+} from "lucide-react";
+import clsx from "clsx";
+import { useState } from "react";
+import { useNodeEditor, FONT_SIZES } from "./useNodeEditor";
+
+interface RichEditorProps {
+  content: string;
+  onChange: (html: string) => void;
+  placeholder?: string;
+}
+
+export default function RichEditor({ content, onChange, placeholder }: RichEditorProps) {
+  const [showToc, setShowToc] = useState(false);
+  const { editor, toc } = useNodeEditor({
+    content,
+    onChange,
+    placeholder,
+    editorClass: "focus:outline-none min-h-[200px] prose prose-sm max-w-none",
+  });
+
+  if (!editor) return null;
+
+  const currentFontSize = editor.getAttributes("textStyle").fontSize ?? "";
+
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50">
+        {/* Font size */}
+        <select
+          value={currentFontSize}
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            if (e.target.value) {
+              editor.chain().focus().setFontSize(e.target.value).run();
+            } else {
+              editor.chain().focus().unsetFontSize().run();
+            }
+          }}
+          className="text-xs text-gray-600 bg-white border border-gray-200 rounded-md px-1.5 py-1 focus:outline-none hover:border-gray-300 cursor-pointer h-[26px]"
+        >
+          <option value="">크기</option>
+          {FONT_SIZES.map((fs) => (
+            <option key={fs.value} value={fs.value}>
+              {fs.label}
+            </option>
+          ))}
+        </select>
+
+        <Divider />
+
+        <ToolGroup>
+          <ToolBtn
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            title="굵게"
+          >
+            <Bold size={13} />
+          </ToolBtn>
+          <ToolBtn
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            title="기울임"
+          >
+            <Italic size={13} />
+          </ToolBtn>
+          <ToolBtn
+            active={editor.isActive("underline")}
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            title="밑줄"
+          >
+            <UnderlineIcon size={13} />
+          </ToolBtn>
+        </ToolGroup>
+
+        <Divider />
+
+        <ToolGroup>
+          <ToolBtn
+            active={editor.isActive("heading", { level: 1 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            title="제목 (목차)"
+          >
+            <Heading1 size={13} />
+          </ToolBtn>
+        </ToolGroup>
+
+        <Divider />
+
+        <ToolGroup>
+          <ToolBtn
+            onClick={() => editor.chain().focus().setHorizontalRule().run()}
+            title="구분선"
+          >
+            <Minus size={13} />
+          </ToolBtn>
+        </ToolGroup>
+
+        <Divider />
+
+        <ToolGroup>
+          <ToolBtn
+            active={editor.isActive({ textAlign: "left" })}
+            onClick={() => editor.chain().focus().setTextAlign("left").run()}
+            title="왼쪽 정렬"
+          >
+            <AlignLeft size={13} />
+          </ToolBtn>
+          <ToolBtn
+            active={editor.isActive({ textAlign: "center" })}
+            onClick={() => editor.chain().focus().setTextAlign("center").run()}
+            title="가운데 정렬"
+          >
+            <AlignCenter size={13} />
+          </ToolBtn>
+          <ToolBtn
+            active={editor.isActive({ textAlign: "right" })}
+            onClick={() => editor.chain().focus().setTextAlign("right").run()}
+            title="오른쪽 정렬"
+          >
+            <AlignRight size={13} />
+          </ToolBtn>
+        </ToolGroup>
+
+        <Divider />
+
+        <ToolGroup>
+          <ToolBtn
+            onClick={() => editor.chain().focus().undo().run()}
+            disabled={!editor.can().undo()}
+            title="실행 취소"
+          >
+            <Undo size={13} />
+          </ToolBtn>
+          <ToolBtn
+            onClick={() => editor.chain().focus().redo().run()}
+            disabled={!editor.can().redo()}
+            title="다시 실행"
+          >
+            <Redo size={13} />
+          </ToolBtn>
+        </ToolGroup>
+
+        <Divider />
+
+        {/* TOC toggle — floating popover */}
+        <div className="relative">
+          <ToolBtn
+            active={showToc}
+            onClick={() => setShowToc((v) => !v)}
+            title="목차 보기"
+          >
+            <BookOpen size={13} />
+          </ToolBtn>
+
+          {showToc && (
+            <div className="absolute top-full right-0 mt-1.5 z-50 w-56 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50">
+                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                  문서 목차
+                </span>
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setShowToc(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+              <div className="px-3 py-2.5 max-h-64 overflow-y-auto">
+                {toc.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic py-1">
+                    H1 / H2 / H3으로 소제목을 추가하면 여기에 표시됩니다.
+                  </p>
+                ) : (
+                  <ul className="space-y-0.5">
+                    {toc.map((item, i) => (
+                      <li
+                        key={i}
+                        className="flex items-center gap-2 py-0.5 text-xs text-gray-700 truncate rounded hover:bg-gray-50 px-1"
+                        style={{ paddingLeft: `${4 + (item.level - 1) * 12}px` }}
+                      >
+                        <span className="shrink-0 text-[9px] font-bold text-gray-300 w-5">
+                          H{item.level}
+                        </span>
+                        <span className="truncate">
+                          {item.text || <em className="text-gray-300 not-italic">빈 제목</em>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Editor */}
+      <div className="legacy-editor px-4 py-3">
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+  );
+}
+
+function ToolGroup({ children }: { children: React.ReactNode }) {
+  return <div className="flex items-center">{children}</div>;
+}
+
+function Divider() {
+  return <div className="w-px h-4 bg-gray-200 mx-1" />;
+}
+
+function ToolBtn({
+  children,
+  onClick,
+  active,
+  disabled,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  title?: string;
+}) {
+  return (
+    <button
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      disabled={disabled}
+      title={title}
+      className={clsx(
+        "p-1.5 rounded-md transition-colors",
+        active
+          ? "bg-blue-100 text-blue-700"
+          : "text-gray-500 hover:bg-gray-100 hover:text-gray-800",
+        disabled && "opacity-30 pointer-events-none"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
