@@ -31,3 +31,5 @@ db_data/
 *.tmp
 coverage/
 .pytest_cache/
+
+docs/

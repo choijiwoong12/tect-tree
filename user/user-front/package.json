@@ -1,0 +1,38 @@
+{
+  "name": "athena-doctrine-front",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.43.0",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@tosspayments/payment-sdk": "^1.9.3",
+    "@tosspayments/payment-widget-sdk": "^0.10.1",
+    "@tosspayments/tosspayments-sdk": "^2.7.1",
+    "@xyflow/react": "^12.3.0",
+    "lucide-react": "latest",
+    "next": "^14.2.35",
+    "postcss": "^8.5.10",
+    "react": "^18.3.1",
+    "react-dom": "18.3.1",
+    "tailwindcss": "^4.2.4",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.16.10",
+    "@types/react": "18.3.11",
+    "@types/react-dom": "18.3.0",
+    "typescript": "5.6.2"
+  },
+  "overrides": {
+    "postcss": "^8.5.10",
+    "cookie": "^0.7.2"
+  }
+}

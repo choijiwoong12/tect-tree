@@ -1,0 +1,203 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #000000;
+  --color-fg: #e8e8ee;
+  --color-accent: #d10000;
+  --color-accent-soft: #6b0000;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-pixel: var(--font-sam3kr), monospace;
+  --font-myeongjo: var(--font-nanum), serif;
+}
+
+/* 네이티브 스크롤바 숨김 — 커스텀 TOC 레일 사용 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 트리 별자리 모드 — 줌아웃 시 회색(미열람) 연결선을 페이드아웃, 흰색만 남김 */
+.react-flow__edge {
+  transition: opacity 0.3s ease;
+}
+.tree-zoomed-out .react-flow__edge.rf-dim-edge {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* document viewer HTML 렌더링 */
+.document-body h1 { font-size: 1.5rem; font-weight: bold; margin: 2rem 0 1rem; }
+.document-body h2 { font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 0.75rem; }
+.document-body p { margin-bottom: 1rem; }
+.document-body strong { font-weight: bold; }
+.document-body ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+.document-body ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
+.document-body li { margin-bottom: 0.25rem; }
+.document-body hr { border-color: rgba(255,255,255,0.2); margin: 1.5rem 0; }
+
+/* 픽셀 UI 폰트 = Sam3KRFont(로컬). Figma 자간 0% 반영. */
+.font-pixel {
+  font-family: var(--font-sam3kr), monospace;
+  letter-spacing: 0;
+}
+
+.font-myeongjo {
+  font-family: var(--font-nanum), serif;
+}
+
+.athena-grid-bg {
+  background-color: #000;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+  background-size: 11px 11px;
+}
+
+/* Film-grain / noise overlay for the main tree background. Sits behind the
+   nodes; grayscale grain blended with `screen` so it reads as a light
+   speckle over the near-black background, giving the textured, grainy feel
+   seen in the design. */
+.athena-noise {
+  opacity: 0.22;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.athena-corner-frame {
+  position: relative;
+}
+.athena-corner-frame::before,
+.athena-corner-frame::after,
+.athena-corner-frame > .corner-bl,
+.athena-corner-frame > .corner-br {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: #d10000;
+  border-style: solid;
+  border-width: 0;
+}
+.athena-corner-frame::before { top: 0; left: 0; border-top-width: 1px; border-left-width: 1px; }
+.athena-corner-frame::after  { top: 0; right: 0; border-top-width: 1px; border-right-width: 1px; }
+.athena-corner-frame > .corner-bl { bottom: 0; left: 0; border-bottom-width: 1px; border-left-width: 1px; }
+.athena-corner-frame > .corner-br { bottom: 0; right: 0; border-bottom-width: 1px; border-right-width: 1px; }
+
+/* Base reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+
+.auth-panel {
+  width: min(100%, 420px);
+  padding: 28px;
+  border: 1px solid #2a2d36;
+  border-radius: 8px;
+  background: #151821;
+}
+
+.auth-panel h1 {
+  margin: 8px 0 24px;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #9aa0ad;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  color: #c4c8d2;
+  font-size: 14px;
+}
+
+.field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #343947;
+  border-radius: 6px;
+  background: #0e1016;
+  color: #f4f5f8;
+  font: inherit;
+}
+
+.field input:focus {
+  outline: 2px solid #7c5cff;
+  outline-offset: 2px;
+}
+
+.primary-button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: #7c5cff;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.form-error {
+  margin: 0;
+  color: #ff8585;
+  font-size: 14px;
+}
+
+.form-success {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #2e7356;
+  border-radius: 6px;
+  background: #10251d;
+  color: #d6f6e8;
+  font-size: 14px;
+}
+
+.auth-link {
+  margin: 4px 0 0;
+  color: #b9bfca;
+  font-size: 14px;
+}
